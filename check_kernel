@@ -55,11 +55,11 @@ p_ok () {
   exit "$STATE_OK"
 }
 p_critical () {
-  echo "$MSG_CRITICAL: $1" >&2
+  echo "$MSG_CRITICAL: $1"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  echo "$MSG_UNKNOWN: $1" >&2
+  echo "$MSG_UNKNOWN: $1"
   exit "$STATE_UNKNOWN"
 }
 
