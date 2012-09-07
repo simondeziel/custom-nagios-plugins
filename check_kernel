@@ -1,0 +1,144 @@
+#!/bin/bash
+
+# Nagios plugin to compare the running kernel version with a desired one
+
+# Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+# Example configuration
+#
+# This check needs to be installed on the monitoring target and executed through
+# NRPE. If the desired kernel has a $(uname -rv) signature like:
+#
+#   3.2.0-30-virtual #48-Ubuntu SMP Fri Aug 24 17:12:24 UTC 2012
+#
+# then the NRPE config extract needed is:
+#
+# command[check_kernel]=/usr/lib/nagios/plugins/check_kernel -c '3.2.0-30.48'
+#
+# And the config extract to add to Nagios' config:
+#
+# define service {
+#   use                 'generic-service'
+#   service_description 'Kernel version'
+#   check_command       'check_nrpe!check_kernel'
+# }
+#
+# This plugin is useful to identify which machine require attention regarding
+# kernel updates and reboots. It does not have a warning threshold since
+# potentially every kernel update bring critical security fixes. Also, it makes
+# no sense to warn if the running kernel is newer than the desired one since you
+# could leverage this when non-critical kernel updates are released.
+
+STATE_OK=0
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="KERNEL OK"
+MSG_CRITICAL="KERNEL CRITICAL"
+MSG_UNKNOWN="KERNEL UNKNOWN"
+SCRIPT_NAME=$(basename $0)
+
+p_ok () {
+  echo "$MSG_OK: $1"
+  exit "$STATE_OK"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1" >&2
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1" >&2
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME -c <desired kernel version>
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2012 Simon Deziel
+
+This plugin checks the running kernel
+
+EOF
+  usage
+  cat << EOF
+
+This plugin checks when the running kernel has version number smaller than what is
+expected.
+EOF
+  exit 0
+}
+
+sanitize_ver () {
+  echo "$1" | sed "s/\([0-9.]\+\)-\([0-9.]\+\).*/\1.\2/g;s/[^0-9.]//g"
+}
+
+# Check arguments
+if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" -ne 2 ]; then
+  p_unknown "Wrong argument count, see $SCRIPT_NAME -h for help"
+elif [ "$1" != "-c" ]; then
+  p_unknown "Wrong argument, see $SCRIPT_NAME -h for help"
+fi
+
+# Desired
+DESIRED_VER_FULL="$2"
+echo "$DESIRED_VER_FULL" | grep -qE '^[0-9.-]+$' || p_unknown "Invalid desired kernel version"
+DESIRED_VER="$(sanitize_ver "$DESIRED_VER_FULL")"
+[ "$?" -eq 0 ] || p_unknown "Unable to parse the desired kernel version"
+DESIRED_VER_ARRAY=(${DESIRED_VER//./ })
+
+# Running
+[ -r /proc/version_signature ] || p_unknown "Unable to read /proc/version_signature"
+RUNNING_VER_FULL="$(awk '{print $2}' /proc/version_signature)"
+[ -n "$RUNNING_VER_FULL" ] || p_unknown "Unable to get the version of the currently running kernel"
+RUNNING_VER_FULL="$(echo "$RUNNING_VER_FULL" | cut -d- -f 1,2)"
+RUNNING_VER="$(sanitize_ver "$RUNNING_VER_FULL")"
+[ "$?" -eq 0 ] || p_unknown "Unable to parse the running kernel version"
+RUNNING_VER_ARRAY=(${RUNNING_VER//./ })
+
+# Check for a perfect match
+[ "${RUNNING_VER_ARRAY[*]}" = "${DESIRED_VER_ARRAY[*]}" ] && p_ok "Running version ($RUNNING_VER_FULL) matches the desired one"
+
+# get smallest array's length
+ARRAY_LEN="${#RUNNING_VER_ARRAY[@]}"
+if [ "${#DESIRED_VER_ARRAY[@]}" -lt "$ARRAY_LEN" ]; then
+  ARRAY_LEN="${#DESIRED_VER_ARRAY[@]}"
+fi
+
+# Compare all numbers of the version array, one by one
+DELTA="invalid"
+i=0
+while [ "$i" -lt $ARRAY_LEN ]; do
+  if [ "${RUNNING_VER_ARRAY[$i]}" -lt "${DESIRED_VER_ARRAY[$i]}" ]; then
+    DELTA="older"
+    break
+  elif [ "${RUNNING_VER_ARRAY[$i]}" -gt "${DESIRED_VER_ARRAY[$i]}" ]; then
+    DELTA="newer"
+    break
+  fi
+  i=$((i + 1))
+done
+
+[ "$DELTA" = "older" ] && p_critical "Running version ($RUNNING_VER_FULL) is behind desired one ($DESIRED_VER_FULL)"
+[ "$DELTA" = "newer" ] && p_ok "Running version ($RUNNING_VER_FULL) is ahead of the desired one ($DESIRED_VER_FULL)"
+
+p_critical "Unable to compare the version strings \"$RUNNING_VER_FULL\" and \"$DESIRED_VER_FULL\""
