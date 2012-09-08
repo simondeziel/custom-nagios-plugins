@@ -42,7 +42,7 @@
 CRIT=7200
 WARN=3600
 #statefile=$(/usr/bin/puppet --configprint statedir)/last_run_summary.yaml
-statefile=/var/lib/puppet/state/last_run_summary.yaml
+statefile=/var/lib/nagios/last_run_summary.yaml
 
 # FUNCTIONS
 result () {
