@@ -46,6 +46,7 @@
 AGENT_DAEMON=false
 CRIT=7200
 WARN=3600
+statefile=""
 
 # FUNCTIONS
 result () {
@@ -100,7 +101,7 @@ do
 done
 
 # find the state file if none provided
-[ -z ${statefile} ] || statefile="$(/usr/bin/puppet config print lastrunfile --mode master)"
+statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile --mode master)"}"
 
 # check if state file exists
 [ -s ${statefile} -a -r ${statefile} ] || result 1
