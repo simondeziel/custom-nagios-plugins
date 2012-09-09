@@ -37,12 +37,15 @@
 # 20120126	A.Swen	    created.
 # 20120214  trey85stang Modified, added getopts, usage, defaults
 # 20120220  A.Swen      Statefile can be overriden
+# 20120909  S.Deziel    Don't check for if the agent daemon present by default. To check
+#                       for its presence, use "-a". This is useful when running from cron.
+#                       Call puppet config to find the location of lastrunfile only
+#                       if none is provided using "-s"
 
 # SETTINGS
+AGENT_DAEMON=false
 CRIT=7200
 WARN=3600
-#statefile=$(/usr/bin/puppet --configprint statedir)/last_run_summary.yaml
-statefile=/var/lib/nagios/last_run_summary.yaml
 
 # FUNCTIONS
 result () {
@@ -69,9 +72,10 @@ usage () {
   exit 1
 }
 
-while getopts "c:s:w:" opt
+while getopts "ac:s:w:" opt
 do
   case $opt in
+    a) AGENT_DAEMON=true ;;
     c)
       if ! echo $OPTARG | grep -q "[A-Za-z]" && [ -n "$OPTARG" ]
       then
@@ -95,12 +99,17 @@ do
   esac
 done
 
+# find the state file if none provided
+[ -z ${statefile} ] || statefile="$(/usr/bin/puppet config print lastrunfile --mode master)"
+
 # check if state file exists
 [ -s ${statefile} -a -r ${statefile} ] || result 1
 
-# check puppet daemon:
-# I only know the cmd lines for Debian and CentOS/RedHat:
-[ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby1.8 /usr/bin/puppet agent")" ] || result 4
+if [ "$AGENT_DAEMON" = "true" ]; then
+  # check puppet daemon:
+  # I only know the cmd lines for Debian and CentOS/RedHat:
+  [ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby1.8 /usr/bin/puppet agent")" ] || result 4
+fi
 
 # check when last run happened
 line="$(grep last_run: ${statefile})"
