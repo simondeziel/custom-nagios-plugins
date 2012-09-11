@@ -73,6 +73,13 @@ usage () {
   exit 1
 }
 
+yaml_parser () {
+  section=$1
+  field=$2
+
+  sed -n "/^  $section/,/^  [^ ]/ s/^    $field: \(.*\)$/\1/p" ${statefile}
+}
+
 while getopts "ac:s:w:" opt
 do
   case $opt in
@@ -113,24 +120,18 @@ if [ "$AGENT_DAEMON" = "true" ]; then
 fi
 
 # check when last run happened
-line="$(grep last_run: ${statefile})"
-last_run=$(echo ${line/last_run:/})
+last_run="$(yaml_parser 'time' 'last_run')"
 now=$(date +%s)
 time_since_last=$((now-last_run))
 [ ${time_since_last} -ge ${CRIT} ] && result 3
 [ ${time_since_last} -ge ${WARN} ] && result 2
 
 # get some more info from the yaml file
-line="$(grep config: ${statefile})"
-config=$(echo ${line/config:/})
-line="$(grep puppet: ${statefile})"
-version=$(echo ${line/puppet:/})
-line="$(grep failed: ${statefile})"
-failed=$(echo ${line/failed:/})
-line="$(grep failure: ${statefile})"
-failure=$(echo ${line/failure:/})
-line="$(grep failed_to_restart: ${statefile})"
-failed_to_restart=$(echo ${line/failed_to_restart:/})
+config="$(yaml_parser 'version' 'config')"
+version="$(yaml_parser 'version' 'puppet')"
+failed="$(yaml_parser 'resources' 'failed')"
+failed_to_restart="$(yaml_parser 'resources' 'failed_to_restart')"
+failure="$(yaml_parser 'events' 'failure')"
 
 [ -z "${last_run}" -o -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
 [ ${failed} -gt 0 -o  ${failure} -gt 0 -o ${failed_to_restart} -gt 0 ] && result 6
