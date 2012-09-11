@@ -47,17 +47,18 @@ AGENT_DAEMON=false
 CRIT=7200
 WARN=3600
 statefile=""
+perf_data=""
 
 # FUNCTIONS
 result () {
   case $1 in
-    0) echo "OK: Puppet agent ${version} running catalogversion ${config}";rc=0 ;;
-    1) echo "UNKNOWN: last_run_summary.yaml not found, not readable or incomplete";rc=3 ;;
-    2) echo "WARNING: Last run was ${time_since_last} seconds ago. warn is ${WARN}";rc=1 ;;
-    3) echo "CRITICAL: Last run was ${time_since_last} seconds ago. crit is ${CRIT}";rc=2 ;;
-    4) echo "CRITICAL: Puppet daemon not running";rc=2 ;;
-    5) echo "UNKNOWN: no WARN or CRIT parameters were sent to this check";rc=3 ;;
-    6) echo "CRITICAL: Last run had 1 or more errors. Check the logs";rc=2 ;;
+    0) echo "OK: Puppet agent ${version} running catalogversion ${config}|${perf_data}";rc=0 ;;
+    1) echo "UNKNOWN: last_run_summary.yaml not found, not readable or incomplete|${perf_data}";rc=3 ;;
+    2) echo "WARNING: Last run was ${time_since_last} seconds ago. warn is ${WARN}|${perf_data}";rc=1 ;;
+    3) echo "CRITICAL: Last run was ${time_since_last} seconds ago. crit is ${CRIT}|${perf_data}";rc=2 ;;
+    4) echo "CRITICAL: Puppet daemon not running|${perf_data}";rc=2 ;;
+    5) echo "UNKNOWN: no WARN or CRIT parameters were sent to this check|${perf_data}";rc=3 ;;
+    6) echo "CRITICAL: Last run had 1 or more errors. Check the logs|${perf_data}";rc=2 ;;
   esac
   exit $rc
 }
@@ -119,19 +120,27 @@ if [ "$AGENT_DAEMON" = "true" ]; then
   [ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby1.8 /usr/bin/puppet agent")" ] || result 4
 fi
 
-# check when last run happened
-last_run="$(yaml_parser 'time' 'last_run')"
-now=$(date +%s)
-time_since_last=$((now-last_run))
-[ ${time_since_last} -ge ${CRIT} ] && result 3
-[ ${time_since_last} -ge ${WARN} ] && result 2
-
 # get some more info from the yaml file
 config="$(yaml_parser 'version' 'config')"
 version="$(yaml_parser 'version' 'puppet')"
 failed="$(yaml_parser 'resources' 'failed')"
 failed_to_restart="$(yaml_parser 'resources' 'failed_to_restart')"
 failure="$(yaml_parser 'events' 'failure')"
+
+# extract some perf data
+time_total="$(yaml_parser 'time' 'total')"
+time_config_retrieval="$(yaml_parser 'time' 'config_retrieval')"
+changes="$(yaml_parser 'changes' 'total')"
+if [ -n "${time_total}" -a -n "${time_config_retrieval}" -a -n "${changes}" ]; then
+  perf_data="time=${time_total},config_retrieval=${time_config_retrieval},changes=${changes}"
+fi
+
+# check when last run happened
+last_run="$(yaml_parser 'time' 'last_run')"
+now=$(date +%s)
+time_since_last=$((now-last_run))
+[ ${time_since_last} -ge ${CRIT} ] && result 3
+[ ${time_since_last} -ge ${WARN} ] && result 2
 
 [ -z "${last_run}" -o -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
 [ ${failed} -gt 0 -o  ${failure} -gt 0 -o ${failed_to_restart} -gt 0 ] && result 6
