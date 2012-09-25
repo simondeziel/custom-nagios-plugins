@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Nagios plugin to check if regular or security fixes packages are pending
+# Nagios plugin to check for regular and security updates availability
 
 # Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
 
@@ -55,7 +55,7 @@ long_usage () {
   cat << EOF
 Copyright (c) 2012 Simon Deziel
 
-This plugin checks for regular or security fixes packages availability
+This plugin checks for regular and security updates availability
 
 EOF
   usage
