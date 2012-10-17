@@ -66,7 +66,7 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME [ -d <disk> ] -w <io/s>,<read unit/s>,<write unit/s> -c <io/s>,<read unit/s>,<write unit/s> [ -u (b|k|m) ] | -h
+  $SCRIPT_NAME [ -d <disk> ] -w <io/s>,<read unit/s>,<write unit/s> -c <io/s>,<read unit/s>,<write unit/s> [ -u (k|m) ] | -h
 EOF
 }
 
@@ -110,11 +110,8 @@ check_args () {
   elif [ "$UNIT" = "k"]; then
     DIVIDER="1024"
     UNIT_TXT="KiB/s"
-  elif [ "$UNIT" = "b"]; then
-    DIVIDER="1"
-    UNIT_TXT="B/s"
   else
-    p_unknown "Invalid bandwidth unit: $UNIT"
+    p_unknown "Invalid bandwidth unit ($UNIT), use -u (m|k)"
   fi
 }
 
