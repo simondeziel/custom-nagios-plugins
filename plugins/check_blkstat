@@ -103,6 +103,22 @@ check_args () {
   [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
 }
 
+parse_stats () {
+  # Previous stats
+  [ -z "$PREVIOUS_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
+  PREVIOUS_IO_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $1}')"
+  PREVIOUS_SECTOR_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $3}')"
+  PREVIOUS_IO_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $5}')"
+  PREVIOUS_SECTOR_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $7}')"
+
+  # Current stats
+  [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
+  CURRENT_IO_READ="$(echo $CURRENT_DISK_STAT | awk '{print $1}')"
+  CURRENT_SECTOR_READ="$(echo $CURRENT_DISK_STAT | awk '{print $3}')"
+  CURRENT_IO_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $5}')"
+  CURRENT_SECTOR_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $7}')"
+}
+
 # Check arguments
 if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
   long_usage
@@ -127,9 +143,12 @@ check_args
 # Make sure the supplied disk is really a block device
 [ -b "/dev/$DISK" ] || p_unknown "$DISK is not a block device"
 
-# Get device block size
-[ -r "/sys/block/$DISK/queue/logical_block_size" ] || p_unknown "Unable to read the physical block size"
-read BLK_SECTOR_SZ < "/sys/block/$DISK/queue/logical_block_size"
+# From Documentation/block/stat.txt:
+# These values count the number of sectors read from or written to this
+# block device.  The "sectors" in question are the standard UNIX 512-byte
+# sectors, not any device- or filesystem-specific block size.  The
+# counters are incremented when the I/O completes.
+BLK_SECTOR_SZ=512
 
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
@@ -143,12 +162,18 @@ if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
   #      Nagios check multiple times before alerting
   p_unknown "First run, no info on previous run yet."
 fi
-
 [ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
 read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
 
+# Parse stats
+parse_stats
 
-# Check collected data
-[ -z "$BLK_SECTOR_SZ" -o -z "$CURRENT_DISK_STAT" -o -z "$PREVIOUS_DISK_STAT" ] && p_unknown "Unknown problem"
+# Elapsed time between current and previous run
+CURRENT_RUN_TIMESTAMP="$(date +%s)"
+PREVIOUS_RUN_TIMESTAMP="$(stat --printf="%Y\n" $PREVIOUS_STAT_FILE)"
+TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
+
+# Save current run stats into previous stat file
+echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
 
 exit 0
