@@ -139,10 +139,8 @@ parse_stats () {
 }
 
 # Check arguments
-if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+if [ "$#" -eq 0 ]; then
   long_usage
-elif [ "$#" -ne 6 ]; then
-  p_unknown "Wrong argument count, see $SCRIPT_NAME -h for help"
 fi
 
 # process command line args
