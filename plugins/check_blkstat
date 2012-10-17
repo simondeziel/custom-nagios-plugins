@@ -128,12 +128,27 @@ check_args
 [ -b "/dev/$DISK" ] || p_unknown "$DISK is not a block device"
 
 # Get device block size
-[ -r "/sys/block/$DISK/queue/physical_block_size" ] || p_unknown "Unable to read the physical block size"
-read BLK_SECTOR_SZ < /sys/block/$DISK/queue/physical_block_size
+[ -r "/sys/block/$DISK/queue/logical_block_size" ] || p_unknown "Unable to read the physical block size"
+read BLK_SECTOR_SZ < "/sys/block/$DISK/queue/logical_block_size"
 
+# Get current disk stats
+[ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
+read CURRENT_DISK_STAT < "/sys/block/$DISK/stat"
+
+# Get previous disk stats
+PREVIOUS_STAT_FILE="/var/tmp/$SCRIPT_NAME.$DISK"
+if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
+  echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
+  # XXX: returning unknown should not send a notification since
+  #      Nagios check multiple times before alerting
+  p_unknown "First run, no info on previous run yet."
+fi
+
+[ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
+read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
 
 
 # Check collected data
-[ -z "$BLK_SECTOR_SZ" ] && p_unknown "Unknown problem"
+[ -z "$BLK_SECTOR_SZ" -o -z "$CURRENT_DISK_STAT" -o -z "$PREVIOUS_DISK_STAT" ] && p_unknown "Unknown problem"
 
 exit 0
