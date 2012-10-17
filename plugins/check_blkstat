@@ -144,9 +144,6 @@ done
 # Check args
 check_args
 
-# Make sure the supplied disk is really a block device
-[ -b "/dev/$DISK" ] || p_unknown "$DISK is not a block device"
-
 # From Documentation/block/stat.txt:
 # These values count the number of sectors read from or written to this
 # block device.  The "sectors" in question are the standard UNIX 512-byte
