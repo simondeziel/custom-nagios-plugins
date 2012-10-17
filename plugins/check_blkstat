@@ -203,9 +203,9 @@ SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
 
 # Metrics
 IOPS="$((($IO_READ_DELTA + IO_WRITE_DELTA) / $TIME_DELTA))"
-BANDWIDTH_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
-BANDWIDTH_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
-[ "$IOPS" -lt 0 -o "$BANDWIDTH_READ" -lt 0 -o "$BANDWIDTH_WRITE" -lt 0 ] && p_unknown "Invalid IO/s or bandwidth stats"
+BW_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+BW_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+[ "$IOPS" -lt 0 -o "$BW_READ" -lt 0 -o "$BW_WRITE" -lt 0 ] && p_unknown "Invalid IO/s or bandwidth stats"
 
 CRIT=0
 WARN=0
@@ -221,27 +221,27 @@ elif [ "$IOPS" -gt "$WARN_IOPS" ]; then
 fi
 
 # Compare read bw against thresholds
-READBW_TXT="read bw $BANDWIDTH_READ $UNIT_TXT"
-if [ "$BANDWIDTH_READ" -gt "$CRIT_READ" ]; then
+READBW_TXT="read bw $BW_READ $UNIT_TXT"
+if [ "$BW_READ" -gt "$CRIT_READ" ]; then
   CRIT="1"
   READBW_TXT="$READBW_TXT (c=$CRIT_READ)"
-elif [ "$BANDWIDTH_READ" -gt "$WARN_READ" ]; then
+elif [ "$BW_READ" -gt "$WARN_READ" ]; then
   WARN="1"
   READBW_TXT="$READBW_TXT (w=$WARN_READ)"
 fi
 
 # Compare write bw against thresholds
-WRITEBW_TXT="write bw $BANDWIDTH_WRITE $UNIT_TXT"
-if [ "$BANDWIDTH_WRITE" -gt "$CRIT_WRITE" ]; then
+WRITEBW_TXT="write bw $BW_WRITE $UNIT_TXT"
+if [ "$BW_WRITE" -gt "$CRIT_WRITE" ]; then
   CRIT="1"
   WRITEBW_TXT="$WRITEBW_TXT (c=$CRIT_WRITE)"
-elif [ "$BANDWIDTH_WRITE" -gt "$WARN_WRITE" ]; then
+elif [ "$BW_WRITE" -gt "$WARN_WRITE" ]; then
   WARN="1"
   WRITEBW_TXT="$WRITEBW_TXT (w=$WARN_WRITE)"
 fi
 
 # Output metrics and perf data
-OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS,read=$BANDWIDTH_READ$UNIT_TXT,write=$BANDWIDTH_WRITE$UNIT_TXT"
+OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS;$WARN_IOPS;$CRIT_IOPS read=$BW_READ$UNIT_TXT;$WARN_READ;$CRIT_READ write=$BW_WRITE$UNIT_TXT;$WARN_WRITE;$CRIT_WRITE"
 if [ "$CRIT" -eq 0 -a "$WARN" -eq 0 ]; then
   p_ok "$OUTPUT"
 elif [ "$CRIT" -eq 1 ]; then
