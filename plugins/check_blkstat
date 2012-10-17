@@ -193,6 +193,7 @@ TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
 # Save current run stats into previous stat file
 echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
 
+# Delta
 IO_READ_DELTA="$(($CURRENT_IO_READ - $PREVIOUS_IO_READ))"
 IO_WRITE_DELTA="$(($CURRENT_IO_WRITE - $PREVIOUS_IO_WRITE))"
 SECTOR_READ_DELTA="$(($CURRENT_SECTOR_READ - $PREVIOUS_SECTOR_READ))"
@@ -200,10 +201,51 @@ SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
 [ "$IO_READ_DELTA" -lt 0 -o "$IO_WRITE_DELTA" -lt 0 -o "$SECTOR_READ_DELTA" -lt 0 -o "$SECTOR_WRITE_DELTA" -lt 0 ] && \
   p_unknown "Invalid block stats delta"
 
+# Metrics
 IOPS="$((($IO_READ_DELTA + IO_WRITE_DELTA) / $TIME_DELTA))"
 BANDWIDTH_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
 BANDWIDTH_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+[ "$IOPS" -lt 0 -o "$BANDWIDTH_READ" -lt 0 -o "$BANDWIDTH_WRITE" -lt 0 ] && p_unknown "Invalid IO/s or bandwidth stats"
 
-echo "IOPS=$IOPS IO/s, BANDWIDTH_READ=$BANDWIDTH_READ $UNIT_TXT, BANDWIDTH_WRITE=$BANDWIDTH_WRITE $UNIT_TXT"
+CRIT=0
+WARN=0
 
-exit 0
+# Compare IOPS against thresholds
+IOPS_TXT="$IOPS IO/s"
+if [ "$IOPS" -gt "$CRIT_IOPS" ]; then
+  CRIT="1"
+  IOPS_TXT="$IOPS_TXT (>$CRIT_IOPS)"
+elif [ "$IOPS" -gt "$WARN_IOPS" ]; then
+  WARN="1"
+  IOPS_TXT="$IOPS_TXT (>$WARN_IOPS)"
+fi
+
+# Compare read bw against thresholds
+READBW_TXT="read bw $BANDWIDTH_READ $UNIT_TXT"
+if [ "$BANDWIDTH_READ" -gt "$CRIT_READ" ]; then
+  CRIT="1"
+  READBW_TXT="$READBW_TXT (>$CRIT_READ)"
+elif [ "$BANDWIDTH_READ" -gt "$WARN_READ" ]; then
+  WARN="1"
+  READBW_TXT="$READBW_TXT (>$WARN_READ)"
+fi
+
+# Compare write bw against thresholds
+WRITEBW_TXT="write bw $BANDWIDTH_WRITE $UNIT_TXT"
+if [ "$BANDWIDTH_WRITE" -gt "$CRIT_WRITE" ]; then
+  CRIT="1"
+  WRITEBW_TXT="$WRITEBW_TXT (>$CRIT_WRITE)"
+elif [ "$BANDWIDTH_WRITE" -gt "$WARN_WRITE" ]; then
+  WARN="1"
+  WRITEBW_TXT="$WRITEBW_TXT (>$WARN_WRITE)"
+fi
+
+# Output metrics and perf data
+OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS,read=$BANDWIDTH_READ$UNIT_TXT,write=$BANDWIDTH_WRITE$UNIT_TXT"
+if [ "$CRIT" -eq 0 -a "$WARN" -eq 0 ]; then
+  p_ok "$OUTPUT"
+elif [ "$CRIT" -eq 1 ]; then
+  p_critical "$OUTPUT"
+else
+  p_warning "$OUTPUT"
+fi
