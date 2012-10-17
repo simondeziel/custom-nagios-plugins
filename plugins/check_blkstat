@@ -166,6 +166,7 @@ check_args
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
 read CURRENT_DISK_STAT < "/sys/block/$DISK/stat"
+[ -z "$CURRENT_DISK_STAT" ] && p_unknown "Unable to read the current disk stats"
 
 # Get previous disk stats
 PREVIOUS_STAT_FILE="/var/tmp/$SCRIPT_NAME.$DISK"
@@ -177,6 +178,8 @@ if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
 fi
 [ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
 read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
+[ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && \
+  p_unknown "Unable to read the previous disk stats"
 
 # Parse stats
 parse_stats
