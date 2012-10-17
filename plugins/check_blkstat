@@ -165,7 +165,7 @@ check_args
 # block device.  The "sectors" in question are the standard UNIX 512-byte
 # sectors, not any device- or filesystem-specific block size.  The
 # counters are incremented when the I/O completes.
-BLK_SECTOR_SZ=512
+BLK_SECTOR_SZ="512"
 
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
@@ -193,5 +193,12 @@ TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
 
 # Save current run stats into previous stat file
 echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
+
+IO_READ_DELTA="$(($CURRENT_IO_READ - $PREVIOUS_IO_READ))"
+IO_WRITE_DELTA="$(($CURRENT_IO_WRITE - $PREVIOUS_IO_WRITE))"
+SECTOR_READ_DELTA="$(($CURRENT_SECTOR_READ - $PREVIOUS_SECTOR_READ))"
+SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
+[ "$IO_READ_DELTA" -lt 0 -o "$IO_WRITE_DELTA" -lt 0 -o "$SECTOR_READ_DELTA" -lt 0 -o "$SECTOR_WRITE_DELTA" -lt 0 ] && \
+  p_unknown "Invalid block stats delta"
 
 exit 0
