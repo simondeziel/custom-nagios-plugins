@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# Nagios plugin to monitor block I/O and bandwidth
+
+# Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+# Example configuration
+#
+# This check needs to be installed on the monitoring target and executed through
+# NRPE. NRPE config extract example:
+#
+# command[check_kernel]=/usr/lib/nagios/plugins/check_blkstat -d sda -w 200,10,10 -c 250,20,20
+#
+# And the config extract to add to Nagios' config:
+#
+# define service {
+#   use                 'generic-service'
+#   service_description 'Disk I/O and bandwidth'
+#   check_command       'check_nrpe!check_blkstat'
+# }
+#
+# This plugin is useful to identify high I/O activity.
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="BLKSTAT OK"
+MSG_WARNING="BLKSTAT WARNING"
+MSG_CRITICAL="BLKSTAT CRITICAL"
+MSG_UNKNOWN="BLKSTAT UNKNOWN"
+SCRIPT_NAME=$(basename $0)
+
+p_ok () {
+  echo "$MSG_OK: $1"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME -d <disk> -w <io/s>,<read MiB/s>,<write MiB/s> -c <io/s>,<read MiB/s>,<write MiB/s> | -h
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2012 Simon Deziel
+
+This plugin checks the block device I/O and bandwidth statistics
+
+EOF
+  usage
+  cat << EOF
+
+This plugin checks when I/O and or bandwidth of a block device are higher than
+the warning/critical thresholds.
+EOF
+  exit 0
+}
+
+check_args () {
+  # check block dev
+  [ -z "$DISK" ]     && p_unknown "Specify a block device using -d <block>, ex: -d sda"
+
+  # Warning thresholds
+  [ -z "$WARNING" ]  && p_unknown "Missing warning thresholds, use -w <io/s,read,write>"
+  WARN_IOPS="$(echo "$WARNING" | cut -d , -f 1)"
+  WARN_READ="$(echo "$WARNING" | cut -d , -f 2)"
+  WARN_WRITE="$(echo "$WARNING" | cut -d , -f 3)"
+  [ -z "$WARN_IOPS" -o -z "$WARN_READ" -o -z "$WARN_WRITE" ] && p_unknown "Invalid warning thresholds, use -w <io/s,read,write>"
+
+  # Critical thresholds
+  [ -z "$CRITICAL" ] && p_unknown "Missing critical thresholds, use -c <io/s,read,write>"
+  CRIT_IOPS="$(echo "$CRITICAL" | cut -d , -f 1)"
+  CRIT_READ="$(echo "$CRITICAL" | cut -d , -f 2)"
+  CRIT_WRITE="$(echo "$CRITICAL" | cut -d , -f 3)"
+  [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
+}
+
+# Check arguments
+if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" -ne 6 ]; then
+  p_unknown "Wrong argument count, see $SCRIPT_NAME -h for help"
+fi
+
+# process command line args
+while [ ! -z "$1" ]; do
+  case $1 in
+    -d|--disk)     shift; DISK="$1";;
+    -w|--warning)  shift; WARNING="$1";;
+    -c|--critical) shift; CRITICAL="$1";;
+    -h|--help)     long_usage;;
+  esac
+  shift
+done
+
+# Check args
+check_args
+
+# Make sure the supplied disk is really a block device
+[ -b "/dev/$DISK" ] || p_unknown "$DISK is not a block device"
+
+# Get device block size
+[ -r "/sys/block/$DISK/queue/physical_block_size" ] || p_unknown "Unable to read the physical block size"
+read BLK_SECTOR_SZ < /sys/block/$DISK/queue/physical_block_size
+
+
+
+# Check collected data
+[ -z "$BLK_SECTOR_SZ" ] && p_unknown "Unknown problem"
+
+exit 0
