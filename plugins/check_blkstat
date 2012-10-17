@@ -105,6 +105,11 @@ check_args () {
   [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
 
   # Units
+  # From Documentation/block/stat.txt:
+  # These values count the number of sectors read from or written to this
+  # block device.  The "sectors" in question are the standard UNIX 512-byte
+  # sectors, not any device- or filesystem-specific block size.  The
+  # counters are incremented when the I/O completes.
   if [ "$UNIT" = "m" ]; then
     # 1 MiB: 1048576 bytes => 2048 x 512 bytes sectors
     SECTOR_PER_UNIT="2048"
@@ -157,13 +162,6 @@ done
 
 # Check args
 check_args
-
-# From Documentation/block/stat.txt:
-# These values count the number of sectors read from or written to this
-# block device.  The "sectors" in question are the standard UNIX 512-byte
-# sectors, not any device- or filesystem-specific block size.  The
-# counters are incremented when the I/O completes.
-BLK_SECTOR_SZ="512"
 
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
