@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Nagios plugin to monitor block I/O and bandwidth
 
