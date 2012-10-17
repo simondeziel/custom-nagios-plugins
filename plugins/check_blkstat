@@ -22,7 +22,7 @@
 # This check needs to be installed on the monitoring target and executed through
 # NRPE. NRPE config extract example:
 #
-# command[check_kernel]=/usr/lib/nagios/plugins/check_blkstat -d sda -w 200,10,10 -c 250,20,20
+# command[check_blkstat]=/usr/lib/nagios/plugins/check_blkstat -d sda -w 200,10,10 -c 250,20,20
 #
 # And the config extract to add to Nagios' config:
 #
@@ -170,7 +170,7 @@ parse_stats
 
 # Elapsed time between current and previous run
 CURRENT_RUN_TIMESTAMP="$(date +%s)"
-PREVIOUS_RUN_TIMESTAMP="$(stat --printf="%Y\n" $PREVIOUS_STAT_FILE)"
+PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
 TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
 
 # Save current run stats into previous stat file
