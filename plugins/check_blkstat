@@ -43,6 +43,8 @@ MSG_WARNING="BLKSTAT WARNING"
 MSG_CRITICAL="BLKSTAT CRITICAL"
 MSG_UNKNOWN="BLKSTAT UNKNOWN"
 SCRIPT_NAME=$(basename $0)
+DISK="sda" # Defaults to monitor sda
+UNIT="m"   # Defaults to express bandwidth in MiB/s
 
 p_ok () {
   echo "$MSG_OK: $1"
@@ -64,7 +66,7 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME -d <disk> -w <io/s>,<read MiB/s>,<write MiB/s> -c <io/s>,<read MiB/s>,<write MiB/s> | -h
+  $SCRIPT_NAME [ -d <disk> ] -w <io/s>,<read unit/s>,<write unit/s> -c <io/s>,<read unit/s>,<write unit/s> [ -u (b|k|m) ] | -h
 EOF
 }
 
@@ -101,6 +103,19 @@ check_args () {
   CRIT_READ="$(echo "$CRITICAL" | cut -d , -f 2)"
   CRIT_WRITE="$(echo "$CRITICAL" | cut -d , -f 3)"
   [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
+
+  if [ "$UNIT" = "m" ]; then
+    DIVIDER="1048576"
+    UNIT_TXT="MiB/s"
+  elif [ "$UNIT" = "k"]; then
+    DIVIDER="1024"
+    UNIT_TXT="KiB/s"
+  elif [ "$UNIT" = "b"]; then
+    DIVIDER="1"
+    UNIT_TXT="B/s"
+  else
+    p_unknown "Invalid bandwidth unit: $UNIT"
+  fi
 }
 
 parse_stats () {
@@ -137,6 +152,7 @@ while [ ! -z "$1" ]; do
     -w|--warning)  shift; WARNING="$1";;
     -c|--critical) shift; CRITICAL="$1";;
     -h|--help)     long_usage;;
+    -u|--unit)     shift; UNIT="$1";;
   esac
   shift
 done
