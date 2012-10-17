@@ -110,6 +110,8 @@ parse_stats () {
   PREVIOUS_SECTOR_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $3}')"
   PREVIOUS_IO_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $5}')"
   PREVIOUS_SECTOR_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $7}')"
+  [ -z "$PREVIOUS_IO_READ" -o -z "$PREVIOUS_SECTOR_READ" -o -z "$PREVIOUS_IO_WRITE" -o -z "$PREVIOUS_SECTOR_WRITE" ] && \
+    p_unknown "Invalid previous block stats"
 
   # Current stats
   [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
@@ -117,6 +119,8 @@ parse_stats () {
   CURRENT_SECTOR_READ="$(echo $CURRENT_DISK_STAT | awk '{print $3}')"
   CURRENT_IO_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $5}')"
   CURRENT_SECTOR_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $7}')"
+  [ -z "$CURRENT_IO_READ" -o -z "$CURRENT_SECTOR_READ" -o -z "$CURRENT_IO_WRITE" -o -z "$CURRENT_SECTOR_WRITE" ] && \
+    p_unknown "Invalid current block stats"
 }
 
 # Check arguments
@@ -172,6 +176,7 @@ parse_stats
 CURRENT_RUN_TIMESTAMP="$(date +%s)"
 PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
 TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
+[ "$TIME_DELTA" -lt 1 ] && p_unknown "Invalid time delta between previous and current runs"
 
 # Save current run stats into previous stat file
 echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
