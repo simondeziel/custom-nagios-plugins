@@ -214,30 +214,30 @@ WARN=0
 IOPS_TXT="$IOPS IO/s"
 if [ "$IOPS" -gt "$CRIT_IOPS" ]; then
   CRIT="1"
-  IOPS_TXT="$IOPS_TXT (>$CRIT_IOPS)"
+  IOPS_TXT="$IOPS_TXT (c=$CRIT_IOPS)"
 elif [ "$IOPS" -gt "$WARN_IOPS" ]; then
   WARN="1"
-  IOPS_TXT="$IOPS_TXT (>$WARN_IOPS)"
+  IOPS_TXT="$IOPS_TXT (w=$WARN_IOPS)"
 fi
 
 # Compare read bw against thresholds
 READBW_TXT="read bw $BANDWIDTH_READ $UNIT_TXT"
 if [ "$BANDWIDTH_READ" -gt "$CRIT_READ" ]; then
   CRIT="1"
-  READBW_TXT="$READBW_TXT (>$CRIT_READ)"
+  READBW_TXT="$READBW_TXT (c=$CRIT_READ)"
 elif [ "$BANDWIDTH_READ" -gt "$WARN_READ" ]; then
   WARN="1"
-  READBW_TXT="$READBW_TXT (>$WARN_READ)"
+  READBW_TXT="$READBW_TXT (w=$WARN_READ)"
 fi
 
 # Compare write bw against thresholds
 WRITEBW_TXT="write bw $BANDWIDTH_WRITE $UNIT_TXT"
 if [ "$BANDWIDTH_WRITE" -gt "$CRIT_WRITE" ]; then
   CRIT="1"
-  WRITEBW_TXT="$WRITEBW_TXT (>$CRIT_WRITE)"
+  WRITEBW_TXT="$WRITEBW_TXT (c=$CRIT_WRITE)"
 elif [ "$BANDWIDTH_WRITE" -gt "$WARN_WRITE" ]; then
   WARN="1"
-  WRITEBW_TXT="$WRITEBW_TXT (>$WARN_WRITE)"
+  WRITEBW_TXT="$WRITEBW_TXT (w=$WARN_WRITE)"
 fi
 
 # Output metrics and perf data
