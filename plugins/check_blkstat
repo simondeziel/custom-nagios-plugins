@@ -104,11 +104,14 @@ check_args () {
   CRIT_WRITE="$(echo "$CRITICAL" | cut -d , -f 3)"
   [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
 
+  # Units
   if [ "$UNIT" = "m" ]; then
-    DIVIDER="1048576"
+    # 1 MiB: 1048576 bytes => 2048 x 512 bytes sectors
+    SECTOR_PER_UNIT="2048"
     UNIT_TXT="MiB/s"
-  elif [ "$UNIT" = "k"]; then
-    DIVIDER="1024"
+  elif [ "$UNIT" = "k" ]; then
+    # 1 KiB: 1024 bytes => 2 x 512 bytes sectors
+    SECTOR_PER_UNIT="2"
     UNIT_TXT="KiB/s"
   else
     p_unknown "Invalid bandwidth unit ($UNIT), use -u (m|k)"
@@ -195,5 +198,11 @@ SECTOR_READ_DELTA="$(($CURRENT_SECTOR_READ - $PREVIOUS_SECTOR_READ))"
 SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
 [ "$IO_READ_DELTA" -lt 0 -o "$IO_WRITE_DELTA" -lt 0 -o "$SECTOR_READ_DELTA" -lt 0 -o "$SECTOR_WRITE_DELTA" -lt 0 ] && \
   p_unknown "Invalid block stats delta"
+
+IOPS="$((($IO_READ_DELTA + IO_WRITE_DELTA) / $TIME_DELTA))"
+BANDWIDTH_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+BANDWIDTH_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+
+echo "IOPS=$IOPS IO/s, BANDWIDTH_READ=$BANDWIDTH_READ $UNIT_TXT, BANDWIDTH_WRITE=$BANDWIDTH_WRITE $UNIT_TXT"
 
 exit 0
