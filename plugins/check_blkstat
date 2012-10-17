@@ -120,13 +120,13 @@ check_args () {
 
 parse_stats () {
   # Previous stats
-  [ -z "$PREVIOUS_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
+  [ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && p_unknown "Invalid previous disk stats"
   PREVIOUS_IO_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $1}')"
   PREVIOUS_SECTOR_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $3}')"
   PREVIOUS_IO_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $5}')"
   PREVIOUS_SECTOR_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $7}')"
   [ -z "$PREVIOUS_IO_READ" -o -z "$PREVIOUS_SECTOR_READ" -o -z "$PREVIOUS_IO_WRITE" -o -z "$PREVIOUS_SECTOR_WRITE" ] && \
-    p_unknown "Invalid previous block stats"
+    rm -f "$PREVIOUS_STAT_FILE" && p_unknown "Invalid previous block stats"
 
   # Current stats
   [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
