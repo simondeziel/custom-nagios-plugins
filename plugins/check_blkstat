@@ -166,6 +166,7 @@ check_args
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
 read CURRENT_DISK_STAT < "/sys/block/$DISK/stat"
+CURRENT_RUN_TIMESTAMP="$(date +%s)"
 [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Unable to read the current disk stats"
 
 # Get previous disk stats
@@ -178,6 +179,7 @@ if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
 fi
 [ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
 read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
+PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
 [ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && \
   p_unknown "Unable to read the previous disk stats"
 
@@ -185,8 +187,6 @@ read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
 parse_stats
 
 # Elapsed time between current and previous run
-CURRENT_RUN_TIMESTAMP="$(date +%s)"
-PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
 TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
 [ "$TIME_DELTA" -lt 1 ] && p_unknown "Invalid time delta between previous and current runs"
 
