@@ -48,6 +48,7 @@ CRIT=7200
 WARN=3600
 statefile=""
 perf_data=""
+ENABLE_PERF_DATA=false
 
 # FUNCTIONS
 result () {
@@ -70,6 +71,7 @@ usage () {
   echo "    -w warning threshold (default 3600 seconds)"
   echo "    -c ciritcal threshold (default 7200 seconds)"
   echo "    -s statefile (default: /var/lib/puppet/state/last_run_summary.yaml)"
+  echo "    -p output performance data"
   echo ""
   exit 1
 }
@@ -81,7 +83,7 @@ yaml_parser () {
   sed -n "/^  $section/,/^  [^ ]/ s/^    $field: \(.*\)$/\1/p" ${statefile}
 }
 
-while getopts "ac:s:w:" opt
+while getopts "ac:s:w:p" opt
 do
   case $opt in
     a) AGENT_DAEMON=true ;;
@@ -93,6 +95,7 @@ do
         usage
       fi
     ;;
+    p) ENABLE_PERF_DATA=true ;;
     s) statefile=${OPTARG} ;;
     w)
       if ! echo $OPTARG | grep -q "[A-Za-z]" && [ -n "$OPTARG" ]
@@ -127,12 +130,14 @@ failed="$(yaml_parser 'resources' 'failed')"
 failed_to_restart="$(yaml_parser 'resources' 'failed_to_restart')"
 failure="$(yaml_parser 'events' 'failure')"
 
-# extract some perf data
-time_total="$(yaml_parser 'time' 'total')"
-time_config_retrieval="$(yaml_parser 'time' 'config_retrieval')"
-changes="$(yaml_parser 'changes' 'total')"
-if [ -n "${time_total}" -a -n "${time_config_retrieval}" -a -n "${changes}" ]; then
-  perf_data="time=${time_total} config_retrieval=${time_config_retrieval} changes=${changes}"
+if [ "$ENABLE_PERF_DATA" = "true" ]; then
+  # extract some perf data
+  time_total="$(yaml_parser 'time' 'total')"
+  time_config_retrieval="$(yaml_parser 'time' 'config_retrieval')"
+  changes="$(yaml_parser 'changes' 'total')"
+  if [ -n "${time_total}" -a -n "${time_config_retrieval}" -a -n "${changes}" ]; then
+    perf_data="time=${time_total} config_retrieval=${time_config_retrieval} changes=${changes}"
+  fi
 fi
 
 # check when last run happened
