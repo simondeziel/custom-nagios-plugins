@@ -132,7 +132,7 @@ time_total="$(yaml_parser 'time' 'total')"
 time_config_retrieval="$(yaml_parser 'time' 'config_retrieval')"
 changes="$(yaml_parser 'changes' 'total')"
 if [ -n "${time_total}" -a -n "${time_config_retrieval}" -a -n "${changes}" ]; then
-  perf_data="time=${time_total},config_retrieval=${time_config_retrieval},changes=${changes}"
+  perf_data="time=${time_total} config_retrieval=${time_config_retrieval} changes=${changes}"
 fi
 
 # check when last run happened
