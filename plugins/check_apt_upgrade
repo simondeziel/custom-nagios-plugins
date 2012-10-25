@@ -26,21 +26,22 @@ MSG_CRITICAL="APT CRITICAL"
 MSG_UNKNOWN="APT UNKNOWN"
 SCRIPT_NAME=$(basename $0)
 BIN="/usr/lib/update-notifier/apt-check"
+perf_data="|"
 
 p_ok () {
-  echo "$MSG_OK: $1"
+  echo "$MSG_OK: $1$perf_data"
   exit "$STATE_OK"
 }
 p_warning () {
-  echo "$MSG_WARNING: $1"
+  echo "$MSG_WARNING: $1$perf_data"
   exit "$STATE_WARNING"
 }
 p_critical () {
-  echo "$MSG_CRITICAL: $1"
+  echo "$MSG_CRITICAL: $1$perf_data"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  echo "$MSG_UNKNOWN: $1"
+  echo "$MSG_UNKNOWN: $1$perf_data"
   exit "$STATE_UNKNOWN"
 }
 
@@ -89,10 +90,11 @@ fi
 # All was fine so far so let's see how many updates are pending
 regular_updates="$(echo "$updates"|cut -d ';' -f1)"
 security_updates="$(echo "$updates"|cut -d ';' -f2)"
+perf_data="|regular=$regular_updates security=$security_updates"
 
 # Nothing pending?
 if [ "${regular_updates};${security_updates}" = '0;0' ]; then
-  p_ok "All packages are up-to-date."
+  p_ok "All packages are up-to-date"
 fi
 
 if [ "$security_updates" != 0 ]; then
