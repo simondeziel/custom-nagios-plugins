@@ -112,7 +112,7 @@ done
 statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile --mode master)"}"
 
 # check if state file exists
-[ -s ${statefile} -a -r ${statefile} ] || result 1
+[ -s "${statefile}" -a -r "${statefile}" ] || result 1
 
 if [ "$AGENT_DAEMON" = "true" ]; then
   # check puppet daemon:
@@ -137,13 +137,13 @@ fi
 
 # check when last run happened
 last_run="$(yaml_parser 'time' 'last_run')"
-now=$(date +%s)
-time_since_last=$((now-last_run))
-[ ${time_since_last} -ge ${CRIT} ] && result 3
-[ ${time_since_last} -ge ${WARN} ] && result 2
+now="$(date +%s)"
+time_since_last="$((now-last_run))"
+[ "${time_since_last}" -ge "${CRIT}" ] && result 3
+[ "${time_since_last}" -ge "${WARN}" ] && result 2
 
 [ -z "${last_run}" -o -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
-[ ${failed} -gt 0 -o  ${failure} -gt 0 -o ${failed_to_restart} -gt 0 ] && result 6
+[ "${failed}" -gt 0 -o  "${failure}" -gt 0 -o "${failed_to_restart}" -gt 0 ] && result 6
 
 # if we come here it works!
 result 0
