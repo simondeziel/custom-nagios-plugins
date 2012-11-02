@@ -165,7 +165,7 @@ check_args
 
 # Get current disk stats
 [ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
-read CURRENT_DISK_STAT < "/sys/block/$DISK/stat"
+CURRENT_DISK_STAT="$(cat /sys/block/$DISK/stat)"
 CURRENT_RUN_TIMESTAMP="$(date +%s)"
 [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Unable to read the current disk stats"
 
@@ -178,7 +178,7 @@ if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
   p_unknown "First run, no info on previous run yet."
 fi
 [ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
-read PREVIOUS_DISK_STAT < "$PREVIOUS_STAT_FILE"
+PREVIOUS_DISK_STAT="$(cat $PREVIOUS_STAT_FILE)"
 PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
 [ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && \
   p_unknown "Unable to read the previous disk stats"
