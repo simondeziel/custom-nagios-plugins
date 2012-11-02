@@ -1,0 +1,129 @@
+#!/bin/sh
+
+# Nagios plugin to monitor conntracking usage (in %) on Linux
+
+# Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+# Example configuration
+#
+# This check needs to be installed on the monitoring target and executed through
+# NRPE. NRPE config extract example:
+#
+# command[check_conntrack]=/usr/lib/nagios/plugins/check_conntrack -w 80 -c 90
+#
+# And the config extract to add to Nagios' config:
+#
+# define service {
+#   use                 'generic-service'
+#   service_description 'Conntrack state usage'
+#   check_command       'check_nrpe!check_conntrack'
+# }
+#
+# This plugin is useful to track iptables state usage (i.e. to identify a DDoS).
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="CONNTRACK OK"
+MSG_WARNING="CONNTRACK WARNING"
+MSG_CRITICAL="CONNTRACK CRITICAL"
+MSG_UNKNOWN="CONNTRACK UNKNOWN"
+SCRIPT_NAME=$(basename $0)
+perf_data="|"
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME -w <% of conntrack state used> -c <% of conntrack state used> | -h
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2012 Simon Deziel
+
+This plugin checks the conntracking usage (in %) on Linux
+
+EOF
+  usage
+  cat << EOF
+
+This plugin checks when conntracking usage is higher than
+the warning/critical thresholds.
+EOF
+  exit 0
+}
+
+# Check arguments
+if [ "$#" -eq 0 ]; then
+  long_usage
+fi
+
+# process command line args
+while [ ! -z "$1" ]; do
+  case $1 in
+    -w|--warning)  shift; WARNING="$1";;
+    -c|--critical) shift; CRITICAL="$1";;
+    -h|--help)     long_usage;;
+  esac
+  shift
+done
+
+# Check args
+[ "$WARNING" -gt 0 -a "$WARNING" -le 100 ] || p_unknown "Invalid warning threshold, use a value > 0 and <= 100"
+[ "$CRITICAL" -gt 0 -a "$CRITICAL" -le 100 ] || p_unknown "Invalid critical threshold, use a value > 0 and <= 100"
+
+# Get conntrack count
+[ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
+CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+[ -z "$CONNTRACK_COUNT" ] && p_unknown "Unable to read the conntrack count"
+
+# Get conntrack max
+[ -r "/proc/sys/net/netfilter/nf_conntrack_max" ] || p_unknown "Unable to read the conntrack max"
+CONNTRACK_MAX="$(cat /proc/sys/net/netfilter/nf_conntrack_max)"
+[ -z "$CONNTRACK_MAX" ] && p_unknown "Unable to read the conntrack max"
+
+USAGE_PERCENT="$(( $CONNTRACK_COUNT / $CONNTRACK_MAX))"
+WARNING_THRESHOLD="$(( $CONNTRACK_MAX * $WARNING / 100))"
+CRITICAL_THRESHOLD="$(( $CONNTRACK_MAX * $CRITICAL / 100))"
+perf_data="|count=$CONNTRACK_COUNT;$WARNING_THRESHOLD;$CRITICAL_THRESHOLD;0;$CONNTRACK_MAX"
+
+# Compare count against thresholds
+if [ "$CONNTRACK_COUNT" -gt "$CRITICAL_THRESHOLD" ]; then
+  p_critical "$USAGE_PERCENT% state used ($CONNTRACK_COUNT/$CONNTRACK_MAX) (c=$CRITICAL%, $CRITICAL_THRESHOLD/$CONNTRACK_MAX)"
+elif [ "$CONNTRACK_COUNT" -gt "$WARNING_THRESHOLD" ]; then
+  p_warning "$USAGE_PERCENT% state used ($CONNTRACK_COUNT/$CONNTRACK_MAX) (w=$WARNING%, $WARNING_THRESHOLD/$CONNTRACK_MAX)"
+fi
+
+p_ok "$USAGE_PERCENT% state used ($CONNTRACK_COUNT/$CONNTRACK_MAX)"
