@@ -191,7 +191,7 @@ TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
 [ "$TIME_DELTA" -lt 1 ] && p_unknown "Invalid time delta between previous and current runs"
 
 # Save current run stats into previous stat file
-echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
+echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE" || p_unknown "Unable to save current stats for later usage"
 
 # Delta
 IO_READ_DELTA="$(($CURRENT_IO_READ - $PREVIOUS_IO_READ))"
