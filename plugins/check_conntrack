@@ -34,6 +34,13 @@
 #
 # This plugin is useful to track iptables state usage (i.e. to identify a DDoS).
 
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
 STATE_OK=0
 STATE_WARNING=1
 STATE_CRITICAL=2

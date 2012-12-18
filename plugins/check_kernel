@@ -42,6 +42,16 @@
 # no sense to warn if the running kernel is newer than the desired one since you
 # could leverage this when non-critical kernel updates are released.
 
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export BASH_ENV=
+export CDPATH=
+export GLOBIGNORE=
+export BASH_XTRACEFD=
+
 STATE_OK=0
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
