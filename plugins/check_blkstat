@@ -248,7 +248,7 @@ elif [ "$BW_WRITE" -gt "$WARN_WRITE" ]; then
 fi
 
 # Output metrics and perf data
-OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS;$WARN_IOPS;$CRIT_IOPS read=$BW_READ$UNIT_TXT;$WARN_READ;$CRIT_READ write=$BW_WRITE$UNIT_TXT;$WARN_WRITE;$CRIT_WRITE"
+OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS;$WARN_IOPS;$CRIT_IOPS;0 read=$BW_READ$UNIT_TXT;$WARN_READ;$CRIT_READ;0 write=$BW_WRITE$UNIT_TXT;$WARN_WRITE;$CRIT_WRITE;0"
 if [ "$CRIT" -eq 0 -a "$WARN" -eq 0 ]; then
   p_ok "$OUTPUT"
 elif [ "$CRIT" -eq 1 ]; then

@@ -97,7 +97,7 @@ fi
 # All was fine so far so let's see how many updates are pending
 regular_updates="$(echo "$updates"|cut -d ';' -f1)"
 security_updates="$(echo "$updates"|cut -d ';' -f2)"
-perf_data="|regular=$regular_updates security=$security_updates"
+perf_data="|regular=$regular_updates;;;0 security=$security_updates;;1;0"
 
 # Nothing pending?
 if [ "${regular_updates};${security_updates}" = '0;0' ]; then
