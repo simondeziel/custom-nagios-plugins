@@ -2,6 +2,7 @@
 
 # check_megaraid_sas Nagios plugin
 # Copyright (C) 2007  Jonathan Delgado, delgado@molbio.mgh.harvard.edu
+# Copyright (C) 2013  Simon Deziel, simon.deziel A.T gmail.com
 # 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,6 +24,8 @@
 # attached to the controller, you can specify the number you should expect to 
 # find with the '-s' flag.
 #
+# If you have a BBU to monitor use the '-c' flag.
+#
 # The paths for the Nagios plugins lib and MegaCli may need to me changed.
 #
 # Code for correct RAID level reporting contributed by Frode Nordahl, 2009/01/12.
@@ -35,13 +38,15 @@ use Getopt::Std;
 use lib qw(/usr/lib/nagios/plugins /usr/lib64/nagios/plugins); # possible pathes to your Nagios plugins and utils.pm
 use utils qw(%ERRORS);
 
-our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p);
+our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p, $opt_b, $opt_c);
 
 
-getopts('hs:o:p:m:');
+getopts('hs:o:p:m:b:c');
 
 if ( $opt_h ) {
 	print "Usage: $0 [-s number] [-m number] [-o number]\n";
+	print "       -b path to the megacli binary\n";
+	print "       -c check the BBU status\n";
 	print "       -s is how many hotspares are attached to the controller\n";
 	print "       -m is the number of media errors to ignore\n";
 	print "       -p is the predictive error count to ignore\n";
@@ -50,7 +55,6 @@ if ( $opt_h ) {
 }
 
 my $megaclibin = '/usr/sbin/MegaCli';  # the full path to your MegaCli binary
-my $megacli = "sudo $megaclibin";      # how we actually call MegaCli
 my $megapostopt = '-NoLog';            # additional options to call at the end of MegaCli arguments
 
 my ($adapters);
@@ -103,10 +107,14 @@ if ( $opt_p ) {
 if ( $opt_o ) {
 	$otherallow = $opt_o;
 }
+if ( $opt_b ) {
+	$megaclibin = $opt_b;
+}
 
 # Some sanity checks that you actually have something where you think MegaCli is
 (-e $megaclibin)
 	|| exitreport('UNKNOWN',"error: $megaclibin does not exist");	
+my $megacli = "sudo $megaclibin";      # how we actually call MegaCli
 
 # Get the number of RAID controllers we have
 open (ADPCOUNT, "$megacli -adpCount $megapostopt |")  
@@ -210,6 +218,44 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 		}
 	} #PDISKS
 	close PDLIST;
+
+	# Do we check the BBU?
+	if ( $opt_c ) {
+		# Get info on the BBU for this adapter
+		open (BBUINFO, "$megacli -AdpBbuCmd -GetBbuStatus -a$adp $megapostopt |")
+			|| exitreport('UNKNOWN', "error: Could not execute $megacli -AdpBbuCmd -GetBbuStatus -a$adp $megapostopt ");
+
+		my ($state, $charger_status, $charge_level);
+		BBU: while (<BBUINFO>) {
+			if ( m/isSOHGood\s*:\s*(\w+)/ ) {
+				$state = $1;
+				if ( $state ne 'Yes' ) {
+					$status = 'CRITICAL';
+					$result .= "BBU isSOHGood problem ";
+				}
+			} elsif ( m/Relative State of Charge\s*:\s*(\d+)/ ) {
+				$charge_level = $1;
+				$result .= "BBU level:$charge_level ";
+				if ( $charge_level < 25 ) {
+					$status = 'CRITICAL';
+					$result .= "(< 25%) ";
+				} elsif ( $charge_level < 50 ) {
+					$status = max_state($status, 'WARNING');
+					$result .= "(< 50%) ";
+				}
+			} elsif ( m/Charger Status\s*:\s*([\w ]+)/ ) {
+				$charger_status = $1;
+				if ( $charger_status eq 'In Progress' ) {
+					$status = max_state($status, 'WARNING');
+					$result .= "charging ";
+				} elsif ( $charger_status ne 'Complete' ) {
+					$status = 'CRITICAL';
+					$result .= "bad status: $charger_status ";
+				}
+			}
+		}
+		close BBUINFO;
+	}
 }
 
 $result .= "Drives:$pdcount ";
