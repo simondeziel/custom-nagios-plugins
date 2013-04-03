@@ -44,7 +44,7 @@ our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p, $opt_b, $opt_c);
 getopts('hs:o:p:m:c');
 
 if ( $opt_h ) {
-	print "Usage: $0 [-s number] [-m number] [-o number]\n";
+	print "Usage: $0 [-s number] [-m number] [-o number] [-c]\n";
 	print "       -c check the BBU status\n";
 	print "       -s is how many hotspares are attached to the controller\n";
 	print "       -m is the number of media errors to ignore\n";
