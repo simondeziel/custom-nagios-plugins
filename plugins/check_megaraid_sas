@@ -231,12 +231,12 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 			} elsif ( m/Relative State of Charge\s*:\s*(\d+)/ ) {
 				$charge_level = $1;
 				$result .= "BBU level:$charge_level ";
-				if ( $charge_level < 25 ) {
+				if ( $charge_level < 60 ) {
 					$status = 'CRITICAL';
-					$result .= "(< 25%) ";
-				} elsif ( $charge_level < 50 ) {
+					$result .= "(< 60%) ";
+				} elsif ( $charge_level < 75 ) {
 					$status = max_state($status, 'WARNING');
-					$result .= "(< 50%) ";
+					$result .= "(< 75%) ";
 				}
 			} elsif ( m/Charger Status\s*:\s*([\w ]+)/ ) {
 				$charger_status = $1;
