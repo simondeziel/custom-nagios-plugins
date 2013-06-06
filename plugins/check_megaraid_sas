@@ -242,7 +242,7 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 				$charger_status = $1;
 				if ( $charger_status eq 'In Progress' ) {
 					$result .= "charging ";
-				} elsif ( $charger_status ne 'Complete' ) {
+				} elsif ( ($charger_status ne 'Complete') && ($charger_status ne 'Off') ) {
 					$status = 'CRITICAL';
 					$result .= "bad status: $charger_status ";
 				}
