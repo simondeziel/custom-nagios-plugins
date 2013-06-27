@@ -221,6 +221,7 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 			|| exitreport('UNKNOWN', "error: Could not execute $megacli -AdpBbuCmd -GetBbuStatus -a$adp $megapostopt ");
 
 		my ($state, $charger_status, $charge_level);
+		my $learning = 0;
 		BBU: while (<BBUINFO>) {
 			if ( m/isSOHGood\s*:\s*(\w+)/ ) {
 				$state = $1;
@@ -228,22 +229,25 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 					$status = 'CRITICAL';
 					$result .= "BBU isSOHGood problem ";
 				}
-			} elsif ( m/Relative State of Charge\s*:\s*(\d+)/ ) {
+			} elsif ( m/Learn Cycle Active\s*:\s*Yes/ ) {
+				$learning = 1;
+			} elsif ( m/Relative State of Charge\s*:\s*(\d+)/) {
 				$charge_level = $1;
 				$result .= "BBU level:$charge_level ";
 				if ( $charge_level < 45 ) {
-					$status = 'CRITICAL';
+					$status = 'CRITICAL' if ( $learning eq 0 );
 					$result .= "(< 45%) ";
 				} elsif ( $charge_level < 50 ) {
-					$status = max_state($status, 'WARNING');
+					$status = max_state($status, 'WARNING') if ( $learning eq 0 );
 					$result .= "(< 50%) ";
 				}
+				$result .= "(in learn cycle) " if ( $learning eq 1 );
 			} elsif ( m/Charger Status\s*:\s*([\w ]+)/ ) {
 				$charger_status = $1;
 				if ( $charger_status eq 'In Progress' ) {
 					$result .= "charging ";
 				} elsif ( ($charger_status ne 'Complete') && ($charger_status ne 'Off') ) {
-					$status = 'CRITICAL';
+					$status = 'CRITICAL' if ( $learning eq 0 );
 					$result .= "bad status: $charger_status ";
 				}
 			}
