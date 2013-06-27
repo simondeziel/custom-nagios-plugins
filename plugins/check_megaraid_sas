@@ -38,10 +38,10 @@ use Getopt::Std;
 use lib qw(/usr/lib/nagios/plugins /usr/lib64/nagios/plugins); # possible pathes to your Nagios plugins and utils.pm
 use utils qw(%ERRORS);
 
-our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p, $opt_b, $opt_c);
+our($opt_h, $opt_s, $opt_o, $opt_m, $opt_p, $opt_b, $opt_c, $opt_W, $opt_C);
 
 
-getopts('hs:o:p:m:c');
+getopts('hs:o:p:m:cW:C:');
 
 if ( $opt_h ) {
 	print "Usage: $0 [-s number] [-m number] [-o number] [-c]\n";
@@ -50,6 +50,8 @@ if ( $opt_h ) {
 	print "       -m is the number of media errors to ignore\n";
 	print "       -p is the predictive error count to ignore\n";
 	print "       -o is the number of other disk errors to ignore\n";
+	print "       -W is the warning level for the BBU (in % of charge)\n";
+	print "       -C is the critical level for the BBU (in % of charge\n";
 	exit;
 }
 
@@ -69,6 +71,9 @@ my $othererrors = 0;
 my $otherallow = 0;
 my $result = '';
 my $status = 'OK';
+my $bbu_warn_percent = 50;
+my $bbu_crit_percent = 45;
+
 
 sub max_state ($$) {
 	my ($current, $compare) = @_;
@@ -105,6 +110,12 @@ if ( $opt_p ) {
 }
 if ( $opt_o ) {
 	$otherallow = $opt_o;
+}
+if ( $opt_W ) {
+	$bbu_warn_percent = $opt_W;
+}
+if ( $opt_C ) {
+	$bbu_crit_percent = $opt_C;
 }
 
 # Some sanity checks that you actually have something where you think MegaCli is
@@ -245,12 +256,12 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 			} elsif ( m/Relative State of Charge\s*:\s*(\d+)/) {
 				$charge_level = $1;
 				$result .= "BBU level:$charge_level ";
-				if ( $charge_level < 45 ) {
+				if ( $charge_level < $bbu_crit_percent ) {
 					$charge_level_status = 'CRITICAL';
-					$result .= "(< 45%) ";
-				} elsif ( $charge_level < 50 ) {
+					$result .= "(< $bbu_crit_percent%) ";
+				} elsif ( $charge_level < $bbu_warn_percent ) {
 					$charge_level_status = 'WARNING';
-					$result .= "(< 50%) ";
+					$result .= "(< $bbu_warn_percent%) ";
 				}
 				$result .= "(in learn cycle) " if ( $learning eq 1 );
 				$result .= "(charging) " if ( $charging eq 1 );
