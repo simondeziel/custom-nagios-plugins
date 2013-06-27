@@ -150,15 +150,32 @@ if [ "$ENABLE_PERF_DATA" = "true" ]; then
   fi
 fi
 
+[ -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
+[ "${failed}" -gt 0 -o "${failure}" -gt 0 -o "${failed_to_restart}" -gt 0 ] && result 6
+
 # check when last run happened
 last_run="$(yaml_parser 'time' 'last_run')"
-now="$(date +%s)"
-time_since_last="$((now-last_run))"
-[ "${time_since_last}" -ge "${CRIT}" ] && result 3
-[ "${time_since_last}" -ge "${WARN}" ] && result 2
+[ -z "${last_run}" ] && result 1
 
-[ -z "${last_run}" -o -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
-[ "${failed}" -gt 0 -o  "${failure}" -gt 0 -o "${failed_to_restart}" -gt 0 ] && result 6
+# Attempt to get the uptime in seconds
+if [ -r /proc/uptime ]; then
+  uptime="$(awk -F. '{print $1}' /proc/uptime)"
+else
+  uptime=0
+fi
+
+# If the uptime is greater than the critical threshold
+# check if the last run is too old. This ensure that a box
+# that was offline for an extended period won't warn until
+# it had a chance to run the puppet agent at least once.
+# If the uptime is NOT available, run check and potentially
+# warn uselessly.
+if [ "${uptime}" -gt "${CRIT}" -o "${uptime}" -eq 0 ]; then
+  now="$(date +%s)"
+  time_since_last="$((now-last_run))"
+  [ "${time_since_last}" -ge "${CRIT}" ] && result 3
+  [ "${time_since_last}" -ge "${WARN}" ] && result 2
+fi
 
 # if we come here it works!
 result 0
