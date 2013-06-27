@@ -220,14 +220,25 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 		open (BBUINFO, "$megacli -AdpBbuCmd -GetBbuStatus -a$adp $megapostopt |")
 			|| exitreport('UNKNOWN', "error: Could not execute $megacli -AdpBbuCmd -GetBbuStatus -a$adp $megapostopt ");
 
-		my ($state, $charger_status, $charge_level);
+		my ($state, $charging_status, $charge_level);
 		my $learning = 0;
+		my $charging = 0;
+		my $charge_level_status = 'OK';
+		my $charger_status = 'OK';
 		BBU: while (<BBUINFO>) {
 			if ( m/isSOHGood\s*:\s*(\w+)/ ) {
 				$state = $1;
 				if ( $state ne 'Yes' ) {
 					$status = 'CRITICAL';
-					$result .= "BBU isSOHGood problem ";
+					$result .= "BBU isSOHGood problem: $state ";
+				}
+			} elsif ( m/Charging Status\s*:\s*(\w+)/ ) {
+				$charging_status = $1;
+				if ( $charging_status eq 'Charging' ) {
+					$charging = 1;
+				} elsif ( $charging_status ne 'None') {
+					$charger_status = 'CRITICAL';
+					$result .= "bad status: $charging_status ";
 				}
 			} elsif ( m/Learn Cycle Active\s*:\s*Yes/ ) {
 				$learning = 1;
@@ -235,24 +246,23 @@ ADAPTER: for ( my $adp = 0; $adp < $adapters; $adp++ ) {
 				$charge_level = $1;
 				$result .= "BBU level:$charge_level ";
 				if ( $charge_level < 45 ) {
-					$status = 'CRITICAL' if ( $learning eq 0 );
+					$charge_level_status = 'CRITICAL';
 					$result .= "(< 45%) ";
 				} elsif ( $charge_level < 50 ) {
-					$status = max_state($status, 'WARNING') if ( $learning eq 0 );
+					$charge_level_status = 'WARNING';
 					$result .= "(< 50%) ";
 				}
 				$result .= "(in learn cycle) " if ( $learning eq 1 );
-			} elsif ( m/Charger Status\s*:\s*([\w ]+)/ ) {
-				$charger_status = $1;
-				if ( $charger_status eq 'In Progress' ) {
-					$result .= "charging ";
-				} elsif ( ($charger_status ne 'Complete') && ($charger_status ne 'Off') ) {
-					$status = 'CRITICAL' if ( $learning eq 0 );
-					$result .= "bad status: $charger_status ";
-				}
+				$result .= "(charging) " if ( $charging eq 1 );
 			}
 		}
 		close BBUINFO;
+
+		# Interpret BBU status
+		if ( ($learning eq 0) and ($charging eq 0) ) {
+			$status = max_state($status, $charger_status);
+			$status = max_state($status, $charge_level_status);
+		}
 	}
 }
 
