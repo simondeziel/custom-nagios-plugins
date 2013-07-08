@@ -83,7 +83,7 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # Check if all worked
-updates="$(/usr/lib/update-notifier/apt-check 2>&1)"
+updates="$($BIN 2>&1)"
 RC="$?"
 if [ "$RC" -ne 0 ]; then
   p_unknown "$BIN returned $RC"
