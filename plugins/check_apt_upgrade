@@ -34,6 +34,7 @@ MSG_UNKNOWN="APT UNKNOWN"
 SCRIPT_NAME=$(basename $0)
 BIN="/usr/lib/update-notifier/apt-check"
 perf_data="|"
+check_timeout=10
 
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
@@ -55,7 +56,13 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME
+  $SCRIPT_NAME [-h] [-t timeout]
+
+Options:
+ -h
+    Print help screen
+ -t
+    Seconds before execution times out (default: 10)
 EOF
 }
 
@@ -73,6 +80,10 @@ EOF
 # Check arguments
 if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
   long_usage
+elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
+  if echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+    check_timeout="$2"
+  fi
 elif [ "$#" -ne 0 ]; then
   p_unknown "No argument accepted (except for help), see $SCRIPT_NAME -h for help"
 fi
@@ -83,9 +94,11 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # Check if all worked
-updates="$($BIN 2>&1)"
+updates="$(timeout $check_timeout $BIN 2>&1)"
 RC="$?"
-if [ "$RC" -ne 0 ]; then
+if [ "$RC" -eq 124 ]; then
+  p_critical "Plugin timed out after $check_timeout seconds"
+elif [ "$RC" -ne 0 ]; then
   p_unknown "$BIN returned $RC"
 fi
 
