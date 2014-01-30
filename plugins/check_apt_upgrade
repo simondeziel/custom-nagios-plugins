@@ -86,7 +86,7 @@ elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
     check_timeout="$2"
   fi
 elif [ "$#" -ne 0 ]; then
-  p_unknown "No argument accepted (except for help), see $SCRIPT_NAME -h for help"
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
 
 # Check if the required binary is present
