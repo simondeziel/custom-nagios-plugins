@@ -31,7 +31,7 @@ MSG_OK="APT OK"
 MSG_WARNING="APT WARNING"
 MSG_CRITICAL="APT CRITICAL"
 MSG_UNKNOWN="APT UNKNOWN"
-SCRIPT_NAME=$(basename $0)
+SCRIPT_NAME="$(basename $0)"
 BIN="/usr/lib/update-notifier/apt-check"
 perf_data="|"
 check_timeout=10
@@ -88,7 +88,7 @@ elif [ "$#" -ne 0 ]; then
   p_unknown "No argument accepted (except for help), see $SCRIPT_NAME -h for help"
 fi
 
-# Check if the required binary present
+# Check if the required binary is present
 if [ ! -x "$BIN" ]; then
   p_unknown "$BIN is not available, hint install update-notifier-common"
 fi
