@@ -35,6 +35,7 @@ SCRIPT_NAME="$(basename $0)"
 BIN="/usr/lib/update-notifier/apt-check"
 perf_data="|"
 check_timeout=10
+TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
@@ -94,7 +95,7 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # Check if all worked
-updates="$(timeout $check_timeout $BIN 2>&1)"
+updates="$($TIMEOUT_BIN $check_timeout $BIN 2>&1)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
   p_critical "Plugin timed out after $check_timeout seconds"
