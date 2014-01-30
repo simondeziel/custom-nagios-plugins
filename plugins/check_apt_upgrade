@@ -95,6 +95,7 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # Check if all worked
+[ -n "$TIMEOUT_BIN" ] || check_timeout=""
 updates="$($TIMEOUT_BIN $check_timeout $BIN 2>&1)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
