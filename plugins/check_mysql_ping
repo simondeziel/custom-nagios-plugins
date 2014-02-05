@@ -1,0 +1,129 @@
+#!/bin/sh
+
+# Nagios plugin to check if the local MySQL server responds to ping
+
+# Copyright (c) 2014 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="MySQL OK"
+MSG_WARNING="MySQL WARNING"
+MSG_CRITICAL="MySQL CRITICAL"
+MSG_UNKNOWN="MySQL UNKNOWN"
+SCRIPT_NAME="$(basename $0)"
+BIN="/usr/bin/mysqladmin"
+perf_data="|"
+check_timeout=10
+TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
+
+# Credential file (optional)
+CRED_FILE="/etc/mysql/debian.cnf"
+
+# XXX: the CRED_FILE is optional as sometimes MySQL allows annonymous access
+#      from localhost. If not, you can also call this plugin with "sudo -H"
+#      and put access credentials in "~/.my.cnf".
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-h] [-t timeout]
+
+Options:
+ -h
+    Print help screen
+ -t
+    Seconds before execution times out (default: 10)
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2014 Simon Deziel
+
+This plugin checks if the local MySQL server responds to ping
+
+EOF
+  usage
+  exit 0
+}
+
+# Check arguments
+if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
+  if echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+    check_timeout="$2"
+  fi
+elif [ "$#" -ne 0 ]; then
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
+fi
+
+# Check if the required binary is present
+if [ ! -x "$BIN" ]; then
+  p_unknown "$BIN is not available, hint install mysql-client"
+fi
+
+# Get the password to connect to MySQL
+if [ -r "$CRED_FILE" ]; then
+  BIN_ARGS="--defaults-file=$CRED_FILE"
+else
+  BIN_ARGS=""
+fi
+
+# Check if the server responds to ping
+[ -n "$TIMEOUT_BIN" ] || check_timeout=""
+output="$($TIMEOUT_BIN $check_timeout $BIN $BIN_ARGS ping 2>&1)"
+RC="$?"
+if [ "$RC" -eq 124 ]; then
+  p_critical "Plugin timed out after $check_timeout seconds"
+elif [ "$RC" -ne 0 ]; then
+  p_critical "MySQL not responding to ping (returned $RC)"
+fi
+
+# Check if output is well-formed
+if echo "$output" | grep -q '^mysqld is alive$'; then
+  p_ok "MySQL responding to ping"
+else
+  p_unknown "$BIN output not as expected: $output"
+fi
+
+# We shouldn't get here
+p_unknown "Unknown error, try executing $BIN manually"
