@@ -1,0 +1,124 @@
+#!/bin/sh
+
+# Nagios plugin to check for processes using deleted libraries
+
+# Copyright (c) 2014 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="OK"
+MSG_WARNING="WARNING"
+MSG_CRITICAL="CRITICAL"
+MSG_UNKNOWN="UNKNOWN"
+SCRIPT_NAME="$(basename $0)"
+perf_data="|"
+check_timeout=10
+max_count=5
+TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-h] [-t timeout]
+
+Options:
+ -h
+    Print help screen
+ -t
+    Seconds before execution times out (default: 10)
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2014 Simon Deziel
+
+This plugin checks for processes using deleted libraries
+
+EOF
+  usage
+  exit 0
+}
+
+# Check arguments
+if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
+  if echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+    check_timeout="$2"
+  fi
+elif [ "$#" -ne 0 ]; then
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
+fi
+
+# Check if /proc/*/maps are readable by testing with PID=1
+cat /proc/1/maps 2>&1 >/dev/null
+if [ "$?" -ne 0 ]; then
+  p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
+fi
+
+# Enumerate all processes which use deleted libs
+[ -n "$TIMEOUT_BIN" ] || check_timeout=""
+processes="$($TIMEOUT_BIN $check_timeout sh -c '
+for comm in $(grep -lE "[[:space:]]/.+/lib[^ ]+ \(deleted\)" /proc/*/maps 2>/dev/null | sed "s#/maps#/comm#"); do
+  cat $comm
+done | sort -u | tr "\n" " "|sed "s/ $//"' 2>&1)"
+RC="$?"
+if [ "$RC" -eq 124 ]; then
+  p_critical "Plugin timed out after $check_timeout seconds"
+elif [ "$RC" -ne 0 ]; then
+  p_unknown "$SCRIPT_NAME returned $RC"
+fi
+
+# Report processes using deleted libs (if any)
+if [ -n "$processes" ]; then
+  reduced_list="$(echo $processes | cut -d\  -f 1-${max_count})"
+  if [ "$processes" != "$reduced_list" ]; then
+    p_warning "Processes using deleted libs: $reduced_list ..."
+  else
+    p_warning "Processes using deleted libs: $processes"
+  fi
+else
+  p_ok "No deleted lib in use"
+fi
+
+# We shouldn't get here
+p_unknown "Unknown error, try executing $SCRIPT_NAME manually"
