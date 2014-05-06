@@ -98,7 +98,7 @@ fi
 # Enumerate all processes which use deleted libs
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
 processes="$($TIMEOUT_BIN $check_timeout sh -c '
-for comm in $(grep -lE "[[:space:]]/.+/lib[^ ]+ \(deleted\)" /proc/*/maps 2>/dev/null | sed "s#/maps#/comm#"); do
+for comm in $(grep -lE "[[:space:]]/.+/lib[^/]+ \(deleted\)" /proc/*/maps 2>/dev/null | sed "s#/maps#/comm#"); do
   cat $comm
 done | sort -u | tr "\n" " "|sed "s/ $//"' 2>&1)"
 RC="$?"
