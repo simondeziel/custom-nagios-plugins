@@ -90,7 +90,7 @@ elif [ "$#" -ne 0 ]; then
 fi
 
 # Check if /proc/*/maps are readable by testing with PID=1
-cat /proc/1/maps 2>&1 >/dev/null
+cat /proc/1/maps >/dev/null 2>&1
 if [ "$?" -ne 0 ]; then
   p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
 fi
