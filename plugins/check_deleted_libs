@@ -34,7 +34,7 @@ MSG_UNKNOWN="UNKNOWN"
 SCRIPT_NAME="$(basename $0)"
 perf_data="|"
 check_timeout=10
-max_count=5
+max_count=15
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 
 p_ok () {
