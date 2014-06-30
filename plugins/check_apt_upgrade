@@ -33,6 +33,7 @@ MSG_CRITICAL="APT CRITICAL"
 MSG_UNKNOWN="APT UNKNOWN"
 SCRIPT_NAME="$(basename $0)"
 BIN="/usr/lib/update-notifier/apt-check"
+GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
@@ -78,16 +79,30 @@ EOF
   exit 0
 }
 
-# Check arguments
-if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
-  long_usage
-elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
-  if echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
-    check_timeout="$2"
-  fi
-elif [ "$#" -ne 0 ]; then
+# Check if getopt is available
+if [ ! -x "$GETOPT" ]; then
+  p_unknown "$GETOPT is not available, hint install util-linux"
+fi
+
+# Note that we use `"$@"' to let each command-line parameter expand to a 
+# separate word. The quotes around `$@' are essential!
+# We need TEMP as the `eval set --' would nuke the return value of getopt.
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hvt: -- "$@"`
+if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+# Parse arguments
+while test "$1" != "--"; do case "$1" in
+      -h) long_usage; shift;;
+      -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
+      --) shift ; break;;
+      *)  p_unknown "Internal error";;
+   esac
+done
 
 # Check if the required binary is present
 if [ ! -x "$BIN" ]; then
