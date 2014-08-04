@@ -99,7 +99,7 @@ fi
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
 processes="$($TIMEOUT_BIN $check_timeout sh -c '
 for pid in $(grep -HE "[[:space:]](\(deleted\)/.+/lib[^/]+|/.+/lib[^/]+ \(deleted\))$" /proc/[0-9]*/maps 2>/dev/null | sed "/\.#prelink#\./d; s#^/proc/\([0-9]\+\)/maps:.*#\1#"); do
-  sed -n "/^Name:[[:space:]]\+/ s/^Name:[[:space:]]\+//p;q" /proc/$pid/status
+  sed -n "/^Name:[[:space:]]\+/ s/^Name:[[:space:]]\+//p;q" /proc/$pid/status 2> /dev/null
 done | sort -u | tr "\n" " "|sed "s/ $//"' 2>&1)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
