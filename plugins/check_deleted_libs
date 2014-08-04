@@ -32,9 +32,10 @@ MSG_WARNING="WARNING"
 MSG_CRITICAL="CRITICAL"
 MSG_UNKNOWN="UNKNOWN"
 SCRIPT_NAME="$(basename $0)"
+GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
-max_count=15
+max_count=0
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 
 p_ok () {
@@ -57,11 +58,13 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME [-h] [-t timeout]
+  $SCRIPT_NAME [-h] [-m max_count] [-t timeout]
 
 Options:
  -h
     Print help screen
+ -m
+    Maximum number of processes to report (default: 0, means infinite)
  -t
     Seconds before execution times out (default: 10)
 EOF
@@ -78,16 +81,31 @@ EOF
   exit 0
 }
 
-# Check arguments
-if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
-  long_usage
-elif [ "$#" -eq 2 ] && [ "$1" = "-t" ]; then
-  if echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
-    check_timeout="$2"
-  fi
-elif [ "$#" -ne 0 ]; then
+# Check if getopt is available
+if [ ! -x "$GETOPT" ]; then
+  p_unknown "$GETOPT is not available, hint install util-linux"
+fi
+
+# Note that we use `"$@"' to let each command-line parameter expand to a
+# separate word. The quotes around `$@' are essential!
+# We need TEMP as the `eval set --' would nuke the return value of getopt.
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:t: -- "$@"`
+if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+# Parse arguments
+while test "$1" != "--"; do case "$1" in
+      -h) long_usage; shift;;
+      -m) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && max_count="$2"; shift 2;;
+      -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
+      --) shift ; break;;
+      *)  p_unknown "Internal error";;
+   esac
+done
 
 # Check if /proc/*/maps are readable by testing with PID=1
 cat /proc/1/maps >/dev/null 2>&1
@@ -110,11 +128,15 @@ fi
 
 # Report processes using deleted libs (if any)
 if [ -n "$processes" ]; then
-  reduced_list="$(echo $processes | cut -d\  -f 1-${max_count})"
-  if [ "$processes" != "$reduced_list" ]; then
-    p_warning "Processes using deleted libs: $reduced_list ..."
-  else
+  if [ "$max_count" -eq 0 ]; then
     p_warning "Processes using deleted libs: $processes"
+  else
+    reduced_list="$(echo $processes | cut -d\  -f 1-${max_count})"
+    if [ "$processes" != "$reduced_list" ]; then
+      p_warning "Processes using deleted libs: $reduced_list ..."
+    else
+      p_warning "Processes using deleted libs: $processes"
+    fi
   fi
 else
   p_ok "No deleted lib in use"
