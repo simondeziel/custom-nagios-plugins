@@ -116,16 +116,19 @@ fi
 # Enumerate all processes which use deleted libs
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
 
+GREP_RE='[[:space:]]((/.+)?/(lib|bin/)[^/]+ \(deleted\)|\(deleted\)(/.+)?/(lib|bin/)[^/]+)$'
+SED_RE='s#^/proc/\([0-9]\+\)/maps:.*#\1#'
+
 # Check if we can use a fast path (/proc/$pid/comm available and no prelink)
-if [ -e "/proc/1/comm" -a ! -x "$(which prelink)" ]; then
+if [ -e "/proc/1/comm" -a ! -x "$(which prelink)" ]; then # fast path
   processes="$($TIMEOUT_BIN $check_timeout sh -c '
-  for pid in $(grep -m1 -HE "[[:space:]](\(deleted\)/.+/lib[^/]+|/.+/lib[^/]+ \(deleted\))$" /proc/[0-9]*/maps 2>/dev/null | sed "s#^/proc/\([0-9]\+\)/maps:.*#\1#"); do
+  for pid in $(grep -m1 -HE "$GREP_RE" /proc/[0-9]*/maps 2>/dev/null | sed "$SED_RE"); do
     cat /proc/$pid/comm 2>/dev/null
   done | sort -u | paste -s -d " "' 2>&1)"
   RC="$?"
-else
+else # slow path
   processes="$($TIMEOUT_BIN $check_timeout sh -c '
-  for pid in $(grep -HE "[[:space:]](\(deleted\)/.+/lib[^/]+|/.+/lib[^/]+ \(deleted\))$" /proc/[0-9]*/maps 2>/dev/null | sed "/\.#prelink#\./d; s#^/proc/\([0-9]\+\)/maps:.*#\1#"); do
+  for pid in $(grep -HE "$GREP_RE" /proc/[0-9]*/maps 2>/dev/null | sed "/\.#prelink#\./d; $SED_RE"); do
     sed -n "/^Name:[[:space:]]\+/ s/^Name:[[:space:]]\+//p;q" /proc/$pid/status 2>/dev/null
   done | sort -u | paste -s -d " "' 2>&1)"
   RC="$?"
