@@ -118,6 +118,7 @@ fi
 
 GREP_RE='[[:space:]]((/.+)?/(lib|bin/)[^/]+ \(deleted\)|\(deleted\)(/.+)?/(lib|bin/)[^/]+)$'
 SED_RE='s#^/proc/\([0-9]\+\)/maps:.*#\1#'
+export GREP_RE SED_RE
 
 # Check if we can use a fast path (/proc/$pid/comm available and no prelink)
 if [ -e "/proc/1/comm" -a ! -x "$(which prelink)" ]; then # fast path
