@@ -16,6 +16,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+# XXX: this plugin relies on the check-deleted-libs script that is distrubuted
+#      here: https://github.com/simondeziel/puppet-unix-tools/blob/master/files/sbin/check-deleted-libs
+
 # Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
 # various other variables. For details, see:
 # https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
@@ -37,6 +40,7 @@ perf_data="|"
 check_timeout=10
 max_count=0
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
+CHECK_DELETED_LIBS="$(/usr/bin/which check-deleted-libs 2>/dev/null)"
 
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
@@ -108,50 +112,38 @@ while test "$1" != "--"; do case "$1" in
 done
 
 # Check if /proc/*/maps are readable by testing with PID=1
-cat /proc/1/maps >/dev/null 2>&1
-if [ "$?" -ne 0 ]; then
-  p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
-fi
+cat /proc/1/maps >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
 
 # Enumerate all processes which use deleted libs
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
 
-GREP_RE='[[:space:]]((/.+)?/(lib|bin/)[^/]+ \(deleted\)|\(deleted\)(/.+)?/(lib|bin/)[^/]+)$'
-SED_RE='s#^/proc/\([0-9]\+\)/maps:.*#\1#'
-export GREP_RE SED_RE
+# Check if everything is there to be used
+[ -n "$CHECK_DELETED_LIBS" ] || p_unknown "check-deleted-libs binary is missing"
+[ -x "$CHECK_DELETED_LIBS" ] || p_unknown "$CHECK_DELETED_LIBS not executable"
 
-# Check if we can use a fast path (/proc/$pid/comm available and no prelink)
-if [ -e "/proc/1/comm" -a ! -x "$(which prelink)" ]; then # fast path
-  processes="$($TIMEOUT_BIN $check_timeout sh -c '
-  for pid in $(grep -m1 -HE "$GREP_RE" /proc/[0-9]*/maps 2>/dev/null | sed "$SED_RE"); do
-    cat /proc/$pid/comm 2>/dev/null
-  done | sort -u | paste -s -d " "' 2>&1)"
-  RC="$?"
-else # slow path
-  processes="$($TIMEOUT_BIN $check_timeout sh -c '
-  for pid in $(grep -HE "$GREP_RE" /proc/[0-9]*/maps 2>/dev/null | sed "/\.#prelink#\./d; $SED_RE"); do
-    sed -n "/^Name:[[:space:]]\+/ s/^Name:[[:space:]]\+//p;q" /proc/$pid/status 2>/dev/null
-  done | sort -u | paste -s -d " "' 2>&1)"
-  RC="$?"
-fi
+processes="$($TIMEOUT_BIN $check_timeout $CHECK_DELETED_LIBS)"
+RC="$?"
 if [ "$RC" -eq 124 ]; then
   p_critical "Plugin timed out after $check_timeout seconds"
 elif [ "$RC" -ne 0 ]; then
   p_unknown "$SCRIPT_NAME returned $RC"
 fi
 
-# Report processes using deleted libs (if any)
 if [ -n "$processes" ]; then
-  if [ "$max_count" -eq 0 ]; then
-    p_warning "Processes using deleted libs: $processes"
-  else
-    reduced_list="$(echo $processes | cut -d\  -f 1-${max_count})"
-    if [ "$processes" != "$reduced_list" ]; then
-      p_warning "Processes using deleted libs: $reduced_list ..."
-    else
-      p_warning "Processes using deleted libs: $processes"
+  if [ "$max_count" -ne 0 ]; then
+    # Count processes
+    process_cnt="$(echo "$processes" | wc -l)"
+
+    # Trim the list if needed
+    if [ "$process_cnt" -gt "${max_count}" ]; then
+      processes="$(echo "$processes" | head -n "${max_count}"; echo "...")"
     fi
   fi
+
+  # Convert the list from multiple lines to a single line, space separated
+  processes="$(echo "$processes" | paste -s -d " ")"
+
+  p_warning "Processes using deleted libs: $processes"
 else
   p_ok "No deleted lib in use"
 fi
