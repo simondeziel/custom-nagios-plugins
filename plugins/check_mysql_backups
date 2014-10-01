@@ -1,0 +1,105 @@
+#!/bin/sh
+
+# Nagios plugin to check if the local MySQL server was backed up recently
+
+# Copyright (c) 2014 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="MySQL Backups OK"
+MSG_WARNING="MySQL Backups WARNING"
+MSG_CRITICAL="MySQL Backups CRITICAL"
+MSG_UNKNOWN="MySQL Backups UNKNOWN"
+SCRIPT_NAME="$(basename $0)"
+MYSQL_BACKUPDIR="/var/backups/mysql"
+perf_data="|"
+minimum_age=1500
+TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-a age] [-h]
+
+Options:
+ -a
+    Minimum age of the last backup in minutes (default: 1500 minutes == 25 hours)
+ -h
+    Print help screen
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2014 Simon Deziel
+
+This plugin checks if the local MySQL server was backed up recently
+
+EOF
+  usage
+  exit 0
+}
+
+# Check arguments
+if [ "$#" -eq 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" -eq 2 ] && [ "$1" = "-a" ]; then
+  if echo "$2" | grep -qE '^[0-9]+$'; then
+    minimum_age="$2"
+  fi
+elif [ "$#" -ne 0 ]; then
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
+fi
+
+# It's possible that no backup was taken already. If that's the case just warn about it
+if [ ! -e "$MYSQL_BACKUPDIR" ]; then
+  p_warning "Backup directory ($MYSQL_BACKUPDIR) not yet created"
+fi
+
+# Count fresh backups
+fresh_backups="$(find $MYSQL_BACKUPDIR -maxdepth 1 -type f -mmin -${minimum_age} | wc -l)"
+
+# Report what we found
+if [ "$fresh_backups" -eq 0 ]; then
+  p_critical "No backup was taken in the past $minimum_age minute(s)"
+else
+  p_ok "$fresh_backups were taken in the past $minimum_age minute(s)"
+fi
