@@ -2,7 +2,7 @@
 
 # Nagios plugin to monitor block I/O and bandwidth
 
-# Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2012,2014 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -102,14 +102,18 @@ check_args () {
   WARN_IOPS="$(echo "$WARNING" | cut -d , -f 1)"
   WARN_READ="$(echo "$WARNING" | cut -d , -f 2)"
   WARN_WRITE="$(echo "$WARNING" | cut -d , -f 3)"
-  [ -z "$WARN_IOPS" -o -z "$WARN_READ" -o -z "$WARN_WRITE" ] && p_unknown "Invalid warning thresholds, use -w <io/s,read,write>"
+  [ -z "$WARN_IOPS" ]  && p_unknown "Invalid warning io/s threshold, use -w <io/s,read,write>"
+  [ -z "$WARN_READ" ]  && p_unknown "Invalid warning read threshold, use -w <io/s,read,write>"
+  [ -z "$WARN_WRITE" ] && p_unknown "Invalid warning write threshold, use -w <io/s,read,write>"
 
   # Critical thresholds
   [ -z "$CRITICAL" ] && p_unknown "Missing critical thresholds, use -c <io/s,read,write>"
   CRIT_IOPS="$(echo "$CRITICAL" | cut -d , -f 1)"
   CRIT_READ="$(echo "$CRITICAL" | cut -d , -f 2)"
   CRIT_WRITE="$(echo "$CRITICAL" | cut -d , -f 3)"
-  [ -z "$CRIT_IOPS" -o -z "$CRIT_READ" -o -z "$CRIT_WRITE" ] && p_unknown "Invalid critical thresholds, use -c <io/s,read,write>"
+  [ -z "$CRIT_IOPS" ]  && p_unknown "Invalid critical io/s threshold, use -c <io/s,read,write>"
+  [ -z "$CRIT_READ" ]  && p_unknown "Invalid critical read threshold, use -c <io/s,read,write>"
+  [ -z "$CRIT_WRITE" ] && p_unknown "Invalid critical write threshold, use -c <io/s,read,write>"
 
   # Units
   # From Documentation/block/stat.txt:
@@ -137,8 +141,10 @@ parse_stats () {
   PREVIOUS_SECTOR_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $3}')"
   PREVIOUS_IO_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $5}')"
   PREVIOUS_SECTOR_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $7}')"
-  [ -z "$PREVIOUS_IO_READ" -o -z "$PREVIOUS_SECTOR_READ" -o -z "$PREVIOUS_IO_WRITE" -o -z "$PREVIOUS_SECTOR_WRITE" ] && \
-    rm -f "$PREVIOUS_STAT_FILE" && p_unknown "Invalid previous block stats"
+  if [ -z "$PREVIOUS_IO_READ" ] || [ -z "$PREVIOUS_SECTOR_READ" ] || [ -z "$PREVIOUS_IO_WRITE" ] || [ -z "$PREVIOUS_SECTOR_WRITE" ]; then
+    rm -f "$PREVIOUS_STAT_FILE"
+    p_unknown "Invalid previous block stats"
+  fi
 
   # Current stats
   [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
@@ -146,8 +152,9 @@ parse_stats () {
   CURRENT_SECTOR_READ="$(echo $CURRENT_DISK_STAT | awk '{print $3}')"
   CURRENT_IO_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $5}')"
   CURRENT_SECTOR_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $7}')"
-  [ -z "$CURRENT_IO_READ" -o -z "$CURRENT_SECTOR_READ" -o -z "$CURRENT_IO_WRITE" -o -z "$CURRENT_SECTOR_WRITE" ] && \
+  if [ -z "$CURRENT_IO_READ" ] || [ -z "$CURRENT_SECTOR_READ" ] || [ -z "$CURRENT_IO_WRITE" ] || [ -z "$CURRENT_SECTOR_WRITE" ]; then
     p_unknown "Invalid current block stats"
+  fi
 }
 
 # Check arguments
@@ -205,14 +212,17 @@ IO_READ_DELTA="$(($CURRENT_IO_READ - $PREVIOUS_IO_READ))"
 IO_WRITE_DELTA="$(($CURRENT_IO_WRITE - $PREVIOUS_IO_WRITE))"
 SECTOR_READ_DELTA="$(($CURRENT_SECTOR_READ - $PREVIOUS_SECTOR_READ))"
 SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
-[ "$IO_READ_DELTA" -lt 0 -o "$IO_WRITE_DELTA" -lt 0 -o "$SECTOR_READ_DELTA" -lt 0 -o "$SECTOR_WRITE_DELTA" -lt 0 ] && \
+if [ "$IO_READ_DELTA" -lt 0 ] || [ "$IO_WRITE_DELTA" -lt 0 ] || [ "$SECTOR_READ_DELTA" -lt 0 ] || [ "$SECTOR_WRITE_DELTA" -lt 0 ]; then
   p_unknown "Invalid block stats delta"
+fi
 
 # Metrics
 IOPS="$((($IO_READ_DELTA + IO_WRITE_DELTA) / $TIME_DELTA))"
 BW_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
 BW_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
-[ "$IOPS" -lt 0 -o "$BW_READ" -lt 0 -o "$BW_WRITE" -lt 0 ] && p_unknown "Invalid IO/s or bandwidth stats"
+if [ "$IOPS" -lt 0 ] || [ "$BW_READ" -lt 0 ] || [ "$BW_WRITE" -lt 0 ]; then
+  p_unknown "Invalid IO/s or bandwidth stats"
+fi
 
 CRIT=0
 WARN=0
@@ -249,7 +259,7 @@ fi
 
 # Output metrics and perf data
 OUTPUT="$IOPS_TXT, $READBW_TXT, $WRITEBW_TXT|iops=$IOPS;$WARN_IOPS;$CRIT_IOPS;0 read=$BW_READ$UNIT_TXT;$WARN_READ;$CRIT_READ;0 write=$BW_WRITE$UNIT_TXT;$WARN_WRITE;$CRIT_WRITE;0"
-if [ "$CRIT" -eq 0 -a "$WARN" -eq 0 ]; then
+if [ "$CRIT" -eq 0 ] && [ "$WARN" -eq 0 ]; then
   p_ok "$OUTPUT"
 elif [ "$CRIT" -eq 1 ]; then
   p_critical "$OUTPUT"
