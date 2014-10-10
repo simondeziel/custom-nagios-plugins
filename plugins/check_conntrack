@@ -108,8 +108,10 @@ while [ ! -z "$1" ]; do
 done
 
 # Check args
-[ "$WARNING" -gt 0 -a "$WARNING" -le 100 ] || p_unknown "Invalid warning threshold, use a value > 0 and <= 100"
-[ "$CRITICAL" -gt 0 -a "$CRITICAL" -le 100 ] || p_unknown "Invalid critical threshold, use a value > 0 and <= 100"
+[ "$WARNING" -gt 0 ] || p_unknown "Invalid warning threshold, use a value > 0"
+[ "$WARNING" -le 100 ] || p_unknown "Invalid warning threshold, use a value <= 100"
+[ "$CRITICAL" -gt 0 ] || p_unknown "Invalid critical threshold, use a value > 0"
+[ "$CRITICAL" -le 100 ] || p_unknown "Invalid critical threshold, use a value <= 100"
 
 # Get conntrack count
 [ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
