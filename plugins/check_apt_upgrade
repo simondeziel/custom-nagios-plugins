@@ -93,7 +93,7 @@ hwe_support_status () {
   fi
 
   # Throw out the HWE_SUPPORT_STATUS_MSG if in quiet mode or if mostly empty
-  if [ "$verbosity" = "quiet" -o "$HWE_SUPPORT_STATUS_MSG" = "; " ]; then
+  if [ "$verbosity" = "quiet" ] || [ "$HWE_SUPPORT_STATUS_MSG" = "; " ]; then
     HWE_SUPPORT_STATUS_MSG=""
   fi
 }
