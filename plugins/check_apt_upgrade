@@ -37,6 +37,7 @@ GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
 verbosity="quiet"
+do_hwe_check="true"
 HWE_SUPPORT_STATUS_MSG=""
 PATH_TO_HWE_SUPPORT_STATUS="/usr/bin/hwe-support-status"
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
@@ -61,7 +62,7 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME [-h] [-t timeout]
+  $SCRIPT_NAME [-h] [-t timeout] [--skip-hwe-check]
 
 Options:
  -h
@@ -70,6 +71,8 @@ Options:
     Verbose execution
  -t
     Seconds before execution times out (default: 10)
+ --skip-hwe-check
+    Skip HWE support status check
 EOF
 }
 
@@ -106,7 +109,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hvt: -- "$@"`
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hvt: -l skip-hwe-check -- "$@"`
 if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
@@ -119,6 +122,7 @@ while test "$1" != "--"; do case "$1" in
       -h) long_usage; shift;;
       -v) verbosity="verbose"; shift;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
+      --skip-hwe-check) do_hwe_check="false"; shift;;
       --) shift ; break;;
       *)  p_unknown "Internal error";;
    esac
@@ -149,7 +153,9 @@ regular_updates="$(echo "$updates"|cut -d ';' -f1)"
 security_updates="$(echo "$updates"|cut -d ';' -f2)"
 
 # Check for HWE support status
-hwe_support_status
+if [ "$do_hwe_check" = "true" ]; then
+  hwe_support_status
+fi
 
 # Gather the perf data
 perf_data="|regular=$regular_updates;;;0 security=$security_updates;;1;0"
