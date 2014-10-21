@@ -37,6 +37,7 @@ GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
 verbosity="quiet"
+HWE_CHECK_ENABLED=true
 HWE_SUPPORT_STATUS_MSG=""
 PATH_TO_HWE_SUPPORT_STATUS="/usr/bin/hwe-support-status"
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
@@ -70,6 +71,11 @@ Options:
     Verbose execution
  -t
     Seconds before execution times out (default: 10)
+
+Additional info:
+    To not generate a critical event if the system is outdated (when 'Hardware Enablement Stack' outdated - is critical)
+    You can set variable HWE_CHECK_ENABLED=false in script manually if you prefer.
+
 EOF
 }
 
@@ -148,8 +154,12 @@ fi
 regular_updates="$(echo "$updates"|cut -d ';' -f1)"
 security_updates="$(echo "$updates"|cut -d ';' -f2)"
 
-# Check for HWE support status
-hwe_support_status
+# Check for HWE support status or not.
+# Usually we are aware of what systems is out of date.
+if [ "$HWE_CHECK_ENABLED" = true ];
+then
+  hwe_support_status
+fi
 
 # Gather the perf data
 perf_data="|regular=$regular_updates;;;0 security=$security_updates;;1;0"
