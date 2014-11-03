@@ -34,7 +34,7 @@ MSG_UNKNOWN="MySQL Backups UNKNOWN"
 SCRIPT_NAME="$(basename $0)"
 MYSQL_BACKUPDIR="/var/backups/mysql"
 perf_data="|"
-minimum_age=1500
+minimum_age=1560
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 
 p_ok () {
@@ -61,7 +61,7 @@ Usage:
 
 Options:
  -a
-    Minimum age of the last backup in minutes (default: 1500 minutes == 25 hours)
+    Minimum age of the last backup in minutes (default: 1560 minutes == 26 hours)
  -h
     Print help screen
 EOF
