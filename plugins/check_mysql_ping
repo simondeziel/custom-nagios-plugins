@@ -104,7 +104,7 @@ fi
 # Get the password to connect to MySQL
 if [ -e "$CRED_FILE" ]; then
   [ "$(id -u)" -ne 0 ] && BIN="sudo $BIN" # use sudo to be able to read the credential file
-  BIN_ARGS="--defaults-file=$CRED_FILE"
+  BIN_ARGS="--defaults-extra-file=$CRED_FILE"
 else
   BIN_ARGS=""
 fi
