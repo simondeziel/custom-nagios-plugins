@@ -123,7 +123,7 @@ CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
 CONNTRACK_MAX="$(cat /proc/sys/net/netfilter/nf_conntrack_max)"
 [ -z "$CONNTRACK_MAX" ] && p_unknown "Unable to read the conntrack max"
 
-USAGE_PERCENT="$(( $CONNTRACK_COUNT / $CONNTRACK_MAX))"
+USAGE_PERCENT="$(( 100 * $CONNTRACK_COUNT / $CONNTRACK_MAX))"
 WARNING_THRESHOLD="$(( $CONNTRACK_MAX * $WARNING / 100))"
 CRITICAL_THRESHOLD="$(( $CONNTRACK_MAX * $CRITICAL / 100))"
 perf_data="|count=$CONNTRACK_COUNT;$WARNING_THRESHOLD;$CRITICAL_THRESHOLD;0;$CONNTRACK_MAX"
