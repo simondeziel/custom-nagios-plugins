@@ -115,7 +115,7 @@ done
 
 # Get conntrack count
 [ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
-CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+CONNTRACK_COUNT="$(conntrack -L 2>/dev/null | grep -vFc UNREPLIED)"
 [ -z "$CONNTRACK_COUNT" ] && p_unknown "Unable to read the conntrack count"
 
 # Get conntrack max
