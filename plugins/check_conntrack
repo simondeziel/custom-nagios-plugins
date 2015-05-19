@@ -2,7 +2,7 @@
 
 # Nagios plugin to monitor conntracking usage (in %) on Linux
 
-# Copyright (c) 2012,2014 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2012,2014,2015 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -51,6 +51,7 @@ MSG_CRITICAL="CONNTRACK CRITICAL"
 MSG_UNKNOWN="CONNTRACK UNKNOWN"
 SCRIPT_NAME=$(basename $0)
 perf_data="|"
+CONNTRACK_BIN="$(/usr/bin/which conntrack 2> /dev/null)"
 
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
@@ -114,8 +115,15 @@ done
 [ "$CRITICAL" -le 100 ] || p_unknown "Invalid critical threshold, use a value <= 100"
 
 # Get conntrack count
-[ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
-CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+if [ -x "$CONNTRACK_BIN" ]; then
+  # do not count UNREPLIED connections as they are temporary entries so as
+  # soon as nf_conntrack_max is reached, UNREPLIED entries are deleted
+  # http://www.netfilter.org/documentation/FAQ/netfilter-faq-3.html#ss3.17
+  CONNTRACK_COUNT="$($CONNTRACK_BIN -L 2>/dev/null | grep -vwFc '[UNREPLIED]')"
+else
+  [ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
+  CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+fi
 [ -z "$CONNTRACK_COUNT" ] && p_unknown "Unable to read the conntrack count"
 
 # Get conntrack max
