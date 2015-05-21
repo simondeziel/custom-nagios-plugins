@@ -1,0 +1,152 @@
+#!/bin/sh
+
+# Nagios plugin to check for QEMU VMs using an outdated QEMU binary
+
+# Copyright (c) 2015 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# XXX: this plugin relies on the check-qemu-outdated script that is distrubuted
+#      here: https://github.com/simondeziel/puppet-unix-tools/blob/master/files/sbin/check-qemu-outdated
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="OK"
+MSG_WARNING="WARNING"
+MSG_CRITICAL="CRITICAL"
+MSG_UNKNOWN="UNKNOWN"
+SCRIPT_NAME="$(basename $0)"
+GETOPT="/usr/bin/getopt"
+perf_data="|"
+check_timeout=10
+max_count=0
+TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
+CHECK_QEMU_OUTDATED="$(/usr/bin/which check-qemu-outdated 2>/dev/null)"
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-h] [-m max_count] [-t timeout]
+
+Options:
+ -h
+    Print help screen
+ -m
+    Maximum number of processes to report (default: 0, means infinite)
+ -t
+    Seconds before execution times out (default: 10)
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2014 Simon Deziel
+
+This plugin checks for QEMU VMs using outdated QEMU binary
+
+EOF
+  usage
+  exit 0
+}
+
+# Check if getopt is available
+if [ ! -x "$GETOPT" ]; then
+  p_unknown "$GETOPT is not available, hint install util-linux"
+fi
+
+# Note that we use `"$@"' to let each command-line parameter expand to a
+# separate word. The quotes around `$@' are essential!
+# We need TEMP as the `eval set --' would nuke the return value of getopt.
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:t: -- "$@"`
+if [ $? != 0 ]; then
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
+fi
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+# Parse arguments
+while test "$1" != "--"; do case "$1" in
+      -h) long_usage; shift;;
+      -m) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && max_count="$2"; shift 2;;
+      -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
+      --) shift ; break;;
+      *)  p_unknown "Internal error";;
+   esac
+done
+
+# Check if /proc/*/maps are readable by testing with PID=1
+cat /proc/1/maps >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
+
+
+# Check if everything is there to be used
+[ -n "$TIMEOUT_BIN" ] || check_timeout=""
+[ -n "$CHECK_QEMU_OUTDATED" ] || p_unknown "check-qemu-outdated binary is missing"
+[ -x "$CHECK_QEMU_OUTDATED" ] || p_unknown "$CHECK_QEMU_OUTDATED not executable"
+
+# Enumerate all QEMU VMs using an outdated QEMU binary
+processes="$($TIMEOUT_BIN $check_timeout $CHECK_QEMU_OUTDATED)"
+RC="$?"
+if [ "$RC" -eq 124 ]; then
+  p_critical "Plugin timed out after $check_timeout seconds"
+elif [ "$RC" -ne 0 ]; then
+  p_unknown "$SCRIPT_NAME returned $RC"
+fi
+
+if [ -n "$processes" ]; then
+  if [ "$max_count" -ne 0 ]; then
+    # Count processes
+    process_cnt="$(echo "$processes" | wc -l)"
+
+    # Trim the list if needed
+    if [ "$process_cnt" -gt "${max_count}" ]; then
+      processes="$(echo "$processes" | head -n "${max_count}"; echo "...")"
+    fi
+  fi
+
+  # Convert the list from multiple lines to a single line, space separated
+  processes="$(echo "$processes" | paste -s -d " ")"
+
+  p_warning "QEMU VMs using outdated QEMU binary: $processes"
+else
+  p_ok "No QEMU VM using outdated QEMU binary"
+fi
+
+# We shouldn't get here
+p_unknown "Unknown error, try executing $SCRIPT_NAME manually"
