@@ -2,7 +2,7 @@
 
 # Nagios plugin to check for processes using deleted libraries
 
-# Copyright (c) 2014 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2014,2015 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -114,13 +114,12 @@ done
 # Check if /proc/*/maps are readable by testing with PID=1
 cat /proc/1/maps >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
 
-# Enumerate all processes which use deleted libs
-[ -n "$TIMEOUT_BIN" ] || check_timeout=""
-
 # Check if everything is there to be used
+[ -n "$TIMEOUT_BIN" ] || check_timeout=""
 [ -n "$CHECK_DELETED_LIBS" ] || p_unknown "check-deleted-libs binary is missing"
 [ -x "$CHECK_DELETED_LIBS" ] || p_unknown "$CHECK_DELETED_LIBS not executable"
 
+# Enumerate all processes using deleted libs
 processes="$($TIMEOUT_BIN $check_timeout $CHECK_DELETED_LIBS)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
