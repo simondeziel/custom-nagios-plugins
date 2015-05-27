@@ -143,9 +143,9 @@ if [ -n "$processes" ]; then
   # Convert the list from multiple lines to a single line, space separated
   processes="$(echo "$processes" | paste -s -d " ")"
 
-  p_warning "QEMU VMs using outdated QEMU binary: $processes"
+  p_warning "VMs using outdated QEMU binary: $processes"
 else
-  p_ok "No QEMU VM using outdated QEMU binary"
+  p_ok "No VM using outdated QEMU binary"
 fi
 
 # We shouldn't get here
