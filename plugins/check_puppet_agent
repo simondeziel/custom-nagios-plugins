@@ -37,10 +37,12 @@
 # 20120126	A.Swen	    created.
 # 20120214  trey85stang Modified, added getopts, usage, defaults
 # 20120220  A.Swen      Statefile can be overriden
-# 20120909  S.Deziel    Don't check for if the agent daemon present by default. To check
-#                       for its presence, use "-a". This is useful when running from cron.
+# 20120909  S.Deziel    Don't check if the agent daemon is running by default. To enable this
+#                       check, use "-a". This is useful when using cron instead of the daemon.
 #                       Call puppet config to find the location of lastrunfile only
-#                       if none is provided using "-s"
+#                       if none is provided using "-s".
+# 20150707 S.Deziel     Fix agent daemon regex to match for newer ruby versions. Fix lastrunfile
+#                       query to work with recent versions of puppet.
 
 # Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
 # various other variables. For details, see:
@@ -122,7 +124,7 @@ do
 done
 
 # find the state file if none provided
-statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile --mode master)"}"
+statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile)"}"
 
 # check if state file exists
 [ -s "${statefile}" -a -r "${statefile}" ] || result 1
@@ -130,7 +132,7 @@ statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile --mode maste
 if [ "$AGENT_DAEMON" = "true" ]; then
   # check puppet daemon:
   # I only know the cmd lines for Debian and CentOS/RedHat:
-  [ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby1.8 /usr/bin/puppet agent")" ] || result 4
+  [ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby.* /usr/bin/puppet agent")" ] || result 4
 fi
 
 # get some more info from the yaml file
