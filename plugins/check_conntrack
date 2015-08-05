@@ -114,6 +114,10 @@ done
 [ "$CRITICAL" -gt 0 ] || p_unknown "Invalid critical threshold, use a value > 0"
 [ "$CRITICAL" -le 100 ] || p_unknown "Invalid critical threshold, use a value <= 100"
 
+# Define conntrack path (support older kernels)
+[ -d "/proc/sys/net/netfilter/" ] && CONNTRACK_PATH="/proc/sys/net/netfilter/nf_conntrack"
+[ -d "/proc/sys/net/ipv4/netfilter/" ] && CONNTRACK_PATH="/proc/sys/net/ipv4/netfilter/ip_conntrack"
+
 # Get conntrack count
 if [ -x "$CONNTRACK_BIN" ]; then
   # do not count UNREPLIED connections as they are temporary entries so as
@@ -121,14 +125,14 @@ if [ -x "$CONNTRACK_BIN" ]; then
   # http://www.netfilter.org/documentation/FAQ/netfilter-faq-3.html#ss3.17
   CONNTRACK_COUNT="$($CONNTRACK_BIN -L 2>/dev/null | grep -vwFc '[UNREPLIED]')"
 else
-  [ -r "/proc/sys/net/netfilter/nf_conntrack_count" ] || p_unknown "Unable to read the conntrack count"
-  CONNTRACK_COUNT="$(cat /proc/sys/net/netfilter/nf_conntrack_count)"
+  [ -r "${CONNTRACK_PATH}_count" ] || p_unknown "Unable to read the conntrack count"
+  CONNTRACK_COUNT="$(cat ${CONNTRACK_PATH}_count)"
 fi
 [ -z "$CONNTRACK_COUNT" ] && p_unknown "Unable to read the conntrack count"
 
 # Get conntrack max
-[ -r "/proc/sys/net/netfilter/nf_conntrack_max" ] || p_unknown "Unable to read the conntrack max"
-CONNTRACK_MAX="$(cat /proc/sys/net/netfilter/nf_conntrack_max)"
+[ -r "${CONNTRACK_PATH}_max" ] || p_unknown "Unable to read the conntrack max"
+CONNTRACK_MAX="$(cat ${CONNTRACK_PATH}_max)"
 [ -z "$CONNTRACK_MAX" ] && p_unknown "Unable to read the conntrack max"
 
 USAGE_PERCENT="$(( 100 * $CONNTRACK_COUNT / $CONNTRACK_MAX))"
