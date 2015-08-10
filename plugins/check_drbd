@@ -6,6 +6,8 @@
 #                                                            #
 # Modified for Ganeti usage as instructed in:                #
 # http://code.google.com/p/ganeti/wiki/DrbdDevicesMonitoring #
+#                                                            #
+# Quiet mode by Simon Deziel <simon.deziel AT gmail DOT com> #
 ##############################################################
 
 use strict;
@@ -14,7 +16,7 @@ use Getopt::Long;
 
 my $drbd_proc='/proc/drbd';
 my $drbd_devices=0;
-my ($drbd_expect, $drbd_role, $drbd_version, $debug_mode);
+my ($drbd_expect, $drbd_role, $drbd_version, $quiet_mode, $debug_mode);
 my (%options, %cs, %st, %ld, %ds, %check, %warning, %critical);
 
 my $prog_name=basename($0);
@@ -91,7 +93,7 @@ my %state = (
 
 sub print_usage {
 	print <<EOF
-Usage: $prog_name [-d <All|Configured|...>] [-e expect] [-p proc] [-r role] [-o states] [-w states] [-c states] [--debug]
+Usage: $prog_name [-d <All|Configured|...>] [-e expect] [-p proc] [-r role] [-o states] [-w states] [-c states] [--quiet] [--debug]
 	Options:
 	-d STRING [default: $drbd_devices.  Example: 0,1,2 ]
 	-p STRING [default: $drbd_proc.  Use '-' for stdin]
@@ -128,7 +130,7 @@ EOF
 }
 
 sub parse_options {
-	my ($help, $version, $debug, $ok_string, $warning_string,
+	my ($help, $version, $quiet, $debug, $ok_string, $warning_string,
 	    $critical_string);
 	#
 	# Get command line options
@@ -142,6 +144,7 @@ sub parse_options {
 		"o|ok=s" => \$ok_string,
 		"w|warning=s" => \$warning_string,
 		"c|critical=s" => \$critical_string,
+		"q|quiet" => \$quiet,
 		"debug" => \$debug);
 	if (defined($help) && ($help ne "")) {
 		&print_help;
@@ -197,6 +200,10 @@ sub parse_options {
 		printf STDERR "DRBD WARNING: %s\n", join(" ",sort(@warning));
 		printf STDERR "DRBD CRITICAL: %s\n", join(" ",sort(@critical));
 		print STDERR "</$prog_name settings>\n";
+	}
+	if (defined($quiet) && ($quiet ne "")) {
+		# Make output quieter
+		$quiet_mode=1;
 	}
 }
 
@@ -366,12 +373,16 @@ sub report_status {
 		#
 		# We found a CRITICAL situation
 		#
-		my $i = 0;
-		for my $device (sort keys %critical) {
-			$message.=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
-			$i++;
-			if ($i != $critical_count) {
-				$message.=", ";
+		if (defined($quiet_mode) && ($quiet_mode == 1)) {
+			$message=sprintf("%d device(s)", $critical_count);
+		} else {
+			my $i = 0;
+			for my $device (sort keys %critical) {
+				$message.=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
+				$i++;
+				if ($i != $critical_count) {
+					$message.=", ";
+				}
 			}
 		}
 		&myexit('CRITICAL',$message);
@@ -379,12 +390,17 @@ sub report_status {
 		#
 		# We found a WARNING situation
 		#
-		my $i = 0;
-		for my $device (sort keys %warning) {
-			$message.=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
-			$i++;
-			if ($i != $warning_count) {
-				$message.=", ";
+
+		if (defined($quiet_mode) && ($quiet_mode == 1)) {
+			$message=sprintf("%d device(s)", $warning_count);
+		} else {
+			my $i = 0;
+			for my $device (sort keys %warning) {
+				$message.=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
+				$i++;
+				if ($i != $warning_count) {
+					$message.=", ";
+				}
 			}
 		}
 		&myexit('WARNING',$message);
@@ -393,17 +409,22 @@ sub report_status {
 		# Everything checks out OK
 		#
 		my $device_count=int(keys %check);
-		if ($device_count == 1) {
-			for my $device ( sort keys %check ) {
-				$message=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
-			}
+
+		if (defined($quiet_mode) && ($quiet_mode == 1)) {
+			$message=sprintf("%d device(s)", $device_count);
 		} else {
-			my $i = 0;
-			for my $device ( sort keys %check ) {
-				$message.=sprintf("Dev %d %0.3s%0.3s%0.3s%0.3s", $device,defined($st{$device})?"$st{$device}":"",$cs{$device},defined($ld{$device})?"$ld{$device}":"",defined($ds{$device})?"$ds{$device}":"");
-				$i++;
-				if ($i != $device_count) {
-					$message.=", ";
+			if ($device_count == 1) {
+				for my $device ( sort keys %check ) {
+					$message=sprintf("Device %d%s $cs{$device}%s%s", $device,defined($st{$device})?" $st{$device}":"",defined($ld{$device})?" $ld{$device}":"",defined($ds{$device})?" $ds{$device}":"");
+				}
+			} else {
+				my $i = 0;
+				for my $device ( sort keys %check ) {
+					$message.=sprintf("Dev %d %0.3s%0.3s%0.3s%0.3s", $device,defined($st{$device})?"$st{$device}":"",$cs{$device},defined($ld{$device})?"$ld{$device}":"",defined($ds{$device})?"$ds{$device}":"");
+					$i++;
+					if ($i != $device_count) {
+						$message.=", ";
+					}
 				}
 			}
 		}
