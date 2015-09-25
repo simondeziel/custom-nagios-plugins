@@ -130,10 +130,10 @@ elif [ "$RC" -ne 0 ]; then
 fi
 
 if [ -n "$processes" ]; then
-  if [ "$max_count" -ne 0 ]; then
-    # Count processes
-    process_cnt="$(echo "$processes" | wc -l)"
 
+  # Count processes
+  process_cnt="$(echo "$processes " | wc -l)"
+  if [ "$max_count" -ne 0 ]; then
     # Trim the list if needed
     if [ "$process_cnt" -gt "${max_count}" ]; then
       processes="$(echo "$processes" | head -n "${max_count}"; echo "...")"
@@ -143,7 +143,7 @@ if [ -n "$processes" ]; then
   # Convert the list from multiple lines to a single line, space separated
   processes="$(echo "$processes" | paste -s -d " ")"
 
-  p_warning "VMs using outdated QEMU binary: $processes"
+  p_warning "$process_cnt VMs using outdated QEMU binary: $processes"
 else
   p_ok "No VM using outdated QEMU binary"
 fi
