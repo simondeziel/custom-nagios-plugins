@@ -132,16 +132,13 @@ fi
 if [ -n "$processes" ]; then
 
   # Count processes
-  process_cnt="$(echo "$processes " | wc -l)"
+  process_cnt="$(echo -n "$processes" | awk '{print NF}')"
   if [ "$max_count" -ne 0 ]; then
     # Trim the list if needed
     if [ "$process_cnt" -gt "${max_count}" ]; then
-      processes="$(echo "$processes" | head -n "${max_count}"; echo "...")"
+      processes="$(echo -n "$processes" | cut -d ' ' -f -"${max_count}") ..."
     fi
   fi
-
-  # Convert the list from multiple lines to a single line, space separated
-  processes="$(echo "$processes" | paste -s -d " ")"
 
   p_warning "$process_cnt VMs using outdated QEMU binary: $processes"
 else
