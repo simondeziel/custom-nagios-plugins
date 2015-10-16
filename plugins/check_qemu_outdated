@@ -104,7 +104,7 @@ eval set -- "$TEMP"
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
       -h) long_usage; shift;;
-      -m) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && max_count="$2"; shift 2;;
+      -m) echo "$2" | grep -qE '^[0-9]+$' && max_count="$2"; shift 2;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
       --) shift ; break;;
       *)  p_unknown "Internal error";;
