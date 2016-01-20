@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Nagios plugin to compare the running kernel version with a desired one
 
@@ -73,31 +73,16 @@ p_unknown () {
   exit "$STATE_UNKNOWN"
 }
 
-usage () {
+long_usage () {
   cat << EOF
+Copyright (c) 2012,2016 Simon Deziel
+
+This plugin checks if the version of the running kernel is behind the desired one.
+
 Usage:
   $SCRIPT_NAME -c <desired kernel version>
 EOF
-}
-
-long_usage () {
-  cat << EOF
-Copyright (c) 2012 Simon Deziel
-
-This plugin checks the running kernel
-
-EOF
-  usage
-  cat << EOF
-
-This plugin checks when the running kernel has version number smaller than what is
-expected.
-EOF
   exit 0
-}
-
-sanitize_ver () {
-  echo "$1" | sed "s/\([0-9.]\+\)-\([0-9.]\+\).*/\1.\2/g;s/[^0-9.]//g"
 }
 
 # Check arguments
@@ -110,40 +95,16 @@ elif [ "$1" != "-c" ]; then
 fi
 
 # Desired
-DESIRED_VER="$(sanitize_ver "$2")"
-[ "$?" -eq 0 ] || p_unknown "Unable to parse the desired kernel version"
-DESIRED_VER_ARRAY=(${DESIRED_VER//./ })
+DESIRED_VER="$2"
+echo "$DESIRED_VER" | grep -q '^[0-9.~-]\+$' || p_unknown "Invalid desired kernel version"
 
 # Running
 [ -r /proc/version_signature ] || p_unknown "Unable to read /proc/version_signature"
-RUNNING_VER="$(sanitize_ver "$(cat /proc/version_signature)")"
+RUNNING_VER="$(sed 's/.*\s\(\S\+\)\s.*/\1/;s/[a-zA-Z-]*$//' /proc/version_signature)"
 [ -n "$RUNNING_VER" ] || p_unknown "Unable to get the version of the currently running kernel"
-RUNNING_VER_ARRAY=(${RUNNING_VER//./ })
 
-# Check for a perfect match
-[ "${RUNNING_VER_ARRAY[*]}" = "${DESIRED_VER_ARRAY[*]}" ] && p_ok "Running version ($RUNNING_VER) matches the desired one"
+# Check if behind
+which dpkg >/dev/null 2>&1 || p_unknown "Unable to find dpkg tool"
+dpkg --compare-versions "$RUNNING_VER" lt "$DESIRED_VER" && p_critical "Running version ($RUNNING_VER) is behind desired one ($DESIRED_VER)"
 
-# get smallest array's length
-ARRAY_LEN="${#RUNNING_VER_ARRAY[@]}"
-if [ "${#DESIRED_VER_ARRAY[@]}" -lt "$ARRAY_LEN" ]; then
-  ARRAY_LEN="${#DESIRED_VER_ARRAY[@]}"
-fi
-
-# Compare all numbers of the version array, one by one
-DELTA="invalid"
-i=0
-while [ "$i" -lt $ARRAY_LEN ]; do
-  if [ "${RUNNING_VER_ARRAY[$i]}" -lt "${DESIRED_VER_ARRAY[$i]}" ]; then
-    DELTA="older"
-    break
-  elif [ "${RUNNING_VER_ARRAY[$i]}" -gt "${DESIRED_VER_ARRAY[$i]}" ]; then
-    DELTA="newer"
-    break
-  fi
-  i=$((i + 1))
-done
-
-[ "$DELTA" = "older" ] && p_critical "Running version ($RUNNING_VER) is behind desired one ($DESIRED_VER)"
-[ "$DELTA" = "newer" ] && p_ok "Running version ($RUNNING_VER) is ahead of the desired one ($DESIRED_VER)"
-
-p_critical "Unable to compare the version strings \"$RUNNING_VER\" and \"$DESIRED_VER\""
+p_ok "Running version ($RUNNING_VER) is greater or equal to the desired one ($DESIRED_VER)"
