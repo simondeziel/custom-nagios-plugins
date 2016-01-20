@@ -2,7 +2,7 @@
 
 # Nagios plugin to compare the running kernel version with a desired one
 
-# Copyright (c) 2012 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2012,2016 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -110,23 +110,18 @@ elif [ "$1" != "-c" ]; then
 fi
 
 # Desired
-DESIRED_VER_FULL="$2"
-echo "$DESIRED_VER_FULL" | grep -qE '^[0-9.-]+$' || p_unknown "Invalid desired kernel version"
-DESIRED_VER="$(sanitize_ver "$DESIRED_VER_FULL")"
+DESIRED_VER="$(sanitize_ver "$2")"
 [ "$?" -eq 0 ] || p_unknown "Unable to parse the desired kernel version"
 DESIRED_VER_ARRAY=(${DESIRED_VER//./ })
 
 # Running
 [ -r /proc/version_signature ] || p_unknown "Unable to read /proc/version_signature"
-RUNNING_VER_FULL="$(awk '{print $2}' /proc/version_signature)"
-[ -n "$RUNNING_VER_FULL" ] || p_unknown "Unable to get the version of the currently running kernel"
-RUNNING_VER_FULL="$(echo "$RUNNING_VER_FULL" | cut -d- -f 1,2)"
-RUNNING_VER="$(sanitize_ver "$RUNNING_VER_FULL")"
-[ "$?" -eq 0 ] || p_unknown "Unable to parse the running kernel version"
+RUNNING_VER="$(sanitize_ver "$(cat /proc/version_signature)")"
+[ -n "$RUNNING_VER" ] || p_unknown "Unable to get the version of the currently running kernel"
 RUNNING_VER_ARRAY=(${RUNNING_VER//./ })
 
 # Check for a perfect match
-[ "${RUNNING_VER_ARRAY[*]}" = "${DESIRED_VER_ARRAY[*]}" ] && p_ok "Running version ($RUNNING_VER_FULL) matches the desired one"
+[ "${RUNNING_VER_ARRAY[*]}" = "${DESIRED_VER_ARRAY[*]}" ] && p_ok "Running version ($RUNNING_VER) matches the desired one"
 
 # get smallest array's length
 ARRAY_LEN="${#RUNNING_VER_ARRAY[@]}"
@@ -148,7 +143,7 @@ while [ "$i" -lt $ARRAY_LEN ]; do
   i=$((i + 1))
 done
 
-[ "$DELTA" = "older" ] && p_critical "Running version ($RUNNING_VER_FULL) is behind desired one ($DESIRED_VER_FULL)"
-[ "$DELTA" = "newer" ] && p_ok "Running version ($RUNNING_VER_FULL) is ahead of the desired one ($DESIRED_VER_FULL)"
+[ "$DELTA" = "older" ] && p_critical "Running version ($RUNNING_VER) is behind desired one ($DESIRED_VER)"
+[ "$DELTA" = "newer" ] && p_ok "Running version ($RUNNING_VER) is ahead of the desired one ($DESIRED_VER)"
 
-p_critical "Unable to compare the version strings \"$RUNNING_VER_FULL\" and \"$DESIRED_VER_FULL\""
+p_critical "Unable to compare the version strings \"$RUNNING_VER\" and \"$DESIRED_VER\""
