@@ -39,23 +39,24 @@ GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
 max_count=0
+multiline=""
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 CHECK_DELETED_LIBS="$(/usr/bin/which check-deleted-libs 2>/dev/null)"
 
 p_ok () {
-  echo "$MSG_OK: $1$perf_data"
+  echo "$MSG_OK: $1$perf_data\n$multiline"
   exit "$STATE_OK"
 }
 p_warning () {
-  echo "$MSG_WARNING: $1$perf_data"
+  echo "$MSG_WARNING: $1$perf_data\n$multiline"
   exit "$STATE_WARNING"
 }
 p_critical () {
-  echo "$MSG_CRITICAL: $1$perf_data"
+  echo "$MSG_CRITICAL: $1$perf_data\n$multiline"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  echo "$MSG_UNKNOWN: $1$perf_data"
+  echo "$MSG_UNKNOWN: $1$perf_data\n$multiline"
   exit "$STATE_UNKNOWN"
 }
 
@@ -130,17 +131,11 @@ fi
 
 if [ -n "$processes" ]; then
   if [ "$max_count" -ne 0 ]; then
-    # Count processes
-    process_cnt="$(echo "$processes" | wc -l)"
-
-    # Trim the list if needed
-    if [ "$process_cnt" -gt "${max_count}" ]; then
-      processes="$(echo "$processes" | head -n "${max_count}"; echo "...")"
-    fi
+    multiline="$(echo "$processes" | sed -n "$((${max_count} + 1)),$ p" | paste -s -d " ")"
+    processes="$(echo "$processes" | sed -n "1,${max_count} p" | paste -s -d " ")"
+  else
+    processes="$(echo "$processes" | paste -s -d " ")"
   fi
-
-  # Convert the list from multiple lines to a single line, space separated
-  processes="$(echo "$processes" | paste -s -d " ")"
 
   p_warning "Processes using deleted libs: $processes"
 else
