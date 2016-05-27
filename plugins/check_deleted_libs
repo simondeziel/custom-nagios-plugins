@@ -132,7 +132,7 @@ fi
 if [ -n "$processes" ]; then
   if [ "$max_count" -ne 0 ]; then
     multiline="$(echo "$processes" | sed -n "$((${max_count} + 1)),$ p" | paste -s -d " ")"
-    processes="$(echo "$processes" | sed -n "1,${max_count} p" | paste -s -d " ")"
+    processes="$(echo "$processes" | sed -n "1,${max_count} p" | paste -s -d " ") ..."
   else
     processes="$(echo "$processes" | paste -s -d " ")"
   fi
