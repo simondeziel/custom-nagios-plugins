@@ -2,7 +2,7 @@
 
 # Nagios plugin to monitor conntracking usage (in %) on Linux
 
-# Copyright (c) 2012,2014,2015 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2012,2014-2016 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -120,6 +120,8 @@ done
 
 # Get conntrack count
 if [ -x "$CONNTRACK_BIN" ]; then
+  [ "$(id -u)" = 0 ] || p_unknown "Using $CONNTRACK_BIN requires to be root"
+
   # do not count UNREPLIED connections as they are temporary entries so as
   # soon as nf_conntrack_max is reached, UNREPLIED entries are deleted
   # http://www.netfilter.org/documentation/FAQ/netfilter-faq-3.html#ss3.17
