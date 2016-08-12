@@ -1,0 +1,168 @@
+#!/bin/sh
+
+# Nagios plugin to check if QEMU VMs use too much resources for what's available
+
+# Copyright (c) 2016 Simon Deziel <simon.deziel@gmail.com>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# XXX: this plugin relies on the check-qemu-overcommit script that is distrubuted
+# here: https://github.com/simondeziel/puppet-unix-tools/blob/master/files/sbin/check-qemu-overcommit
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="OK"
+MSG_WARNING="WARNING"
+MSG_CRITICAL="CRITICAL"
+MSG_UNKNOWN="UNKNOWN"
+SCRIPT_NAME="$(basename $0)"
+GETOPT="/usr/bin/getopt"
+perf_data="|"
+
+p_ok () {
+  echo "$MSG_OK: $1$perf_data"
+  exit "$STATE_OK"
+}
+p_warning () {
+  echo "$MSG_WARNING: $1$perf_data"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1$perf_data"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1$perf_data"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-h] -m <warning>,<critical> -p <warning>,<critical>
+
+Options:
+ -h
+    Print help screen
+ -m
+    Warning/critical thresholds for memory allocated to all QEMU guests.
+ -p
+    Warning/critical thresholds for processors allocated to all QEMU guests.
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2016 Simon Deziel
+
+This plugin check if the resources allocated to all QEMU guests are under a certain level.
+
+EOF
+  usage
+  exit 0
+}
+
+# Check if getopt is available
+if [ ! -x "$GETOPT" ]; then
+  p_unknown "$GETOPT is not available, hint install util-linux"
+fi
+
+# Note that we use `"$@"' to let each command-line parameter expand to a
+# separate word. The quotes around `$@' are essential!
+# We need TEMP as the `eval set --' would nuke the return value of getopt.
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:p: -- "$@"`
+if [ $? != 0 ]; then
+  p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
+fi
+
+# Note the quotes around `$TEMP': they are essential!
+eval set -- "$TEMP"
+
+# Parse arguments
+while test "$1" != "--"; do case "$1" in
+      -h) long_usage; shift;;
+      -m) mem_warn="$(echo "$2"|cut -d, -f1)"; mem_crit="$(echo "$2"|cut -d, -f2)"; shift 2;;
+      -p) proc_warn="$(echo "$2"|cut -d, -f1)"; proc_crit="$(echo "$2"|cut -d, -f2)"; shift 2;;
+      --) shift ; break;;
+      *)  p_unknown "Internal error";;
+   esac
+done
+
+parse_qemu_cmdline() {
+  while [ "$#" -ge 1 ]; do
+    case $1 in
+      -m)   t_m=$((t_m+$2));shift 2;;
+      -smp) t_p=$((t_p+$2));shift 2;;
+      *)    shift;;
+    esac
+  done
+}
+
+t_m=0
+t_p=0
+OIFS="$IFS"
+IFS="
+"
+for vm in $(pgrep -a -f ^qemu-system-); do
+  IFS=' '
+  parse_qemu_cmdline $vm
+done
+IFS="$OIFS"
+
+MEM_UNIT="MB"
+perf_data="|mem=$t_m$MEM_UNIT;$mem_warn,$mem_crit;0;; proc=$t_p;$proc_warn;$proc_crit;0;;"
+
+state=$STATE_OK
+if [ "$t_p" -gt "$proc_crit" ]; then
+  proc_msg="total proc critical ($t_p/$proc_crit)"
+  state="$STATE_CRITICAL"
+elif [ "$t_p" -gt "$proc_warn" ]; then
+  proc_msg="total proc warning ($t_p/$proc_warn)"
+  state="$STATE_WARNING"
+else
+  proc_msg="total proc OK ($t_p)"
+fi
+
+if [ "$t_m" -gt "$mem_crit" ]; then
+  mem_msg="total memory critical ($t_m/$mem_crit $MEM_UNIT)"
+  state="$STATE_CRITICAL"
+elif [ "$t_m" -gt "$mem_warn" ]; then
+  mem_msg="total memory warning ($t_m/$mem_warn $MEM_UNIT)"
+  [ "$state" != "$STATE_CRITICAL" ] && state="$STATE_WARNING"
+else
+  mem_msg="total memory OK ($t_m $MEM_UNIT)"
+fi
+
+# Concatenate proc_msg and mem_msg
+if [ -n "$proc_msg" ] && [ -n "$mem_msg" ]; then
+  msg="$proc_msg, $mem_msg"
+else
+  msg="$proc_msg$mem_msg"
+fi
+
+if [ "$state" = "$STATE_CRITICAL" ]; then
+  p_critical "$proc_msg, $mem_msg"
+elif [ "$state" = "$STATE_WARNING" ]; then
+  p_warning "$proc_msg, $mem_msg"
+else
+  p_ok "$proc_msg, $mem_msg"
+fi
