@@ -64,9 +64,13 @@ Options:
  -h
     Print help screen
  -m
-    Warning/critical thresholds for memory allocated to all QEMU guests.
+    Warning threshold for memory allocated to all QEMU guests.
+ -M
+    Critical threshold for memory allocated to all QEMU guests.
  -p
-    Warning/critical thresholds for processors allocated to all QEMU guests.
+    Warning threshold for processors allocated to all QEMU guests.
+ -P
+    Critical threshold for processors allocated to all QEMU guests.
 EOF
 }
 
@@ -89,7 +93,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:p: -- "$@"`
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:M:p:P: -- "$@"`
 if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
@@ -100,12 +104,18 @@ eval set -- "$TEMP"
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
       -h) long_usage; shift;;
-      -m) mem_warn="$(echo "$2"|cut -d, -f1)"; mem_crit="$(echo "$2"|cut -d, -f2)"; shift 2;;
-      -p) proc_warn="$(echo "$2"|cut -d, -f1)"; proc_crit="$(echo "$2"|cut -d, -f2)"; shift 2;;
+      -m) mem_warn="$(echo "$2"|awk '{printf "%.f\n", $1}')"; shift 2;;
+      -M) mem_crit="$(echo "$2"|awk '{printf "%.f\n", $1}')"; shift 2;;
+      -p) proc_warn="$(echo "$2"|awk '{printf "%.f\n", $1}')"; shift 2;;
+      -P) proc_crit="$(echo "$2"|awk '{printf "%.f\n", $1}')"; shift 2;;
       --) shift ; break;;
       *)  p_unknown "Internal error";;
    esac
 done
+
+if [ -z "$mem_warn" ] || [ -z "$mem_crit" ] || [ -z "$proc_warn" ] || [ -z "$proc_crit" ]; then
+  p_unknown "Missing warning or critical threshold(s) for memory (-m/-M) or processor (-p/-P)."
+fi
 
 parse_qemu_cmdline() {
   while [ "$#" -ge 1 ]; do
