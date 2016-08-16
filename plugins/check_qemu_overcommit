@@ -143,36 +143,31 @@ perf_data="|mem=$t_m$MEM_UNIT;$mem_warn,$mem_crit;0;; proc=$t_p;$proc_warn;$proc
 
 state=$STATE_OK
 if [ "$t_p" -gt "$proc_crit" ]; then
-  proc_msg="total proc critical ($t_p/$proc_crit)"
+  proc_state="CRIT:$((proc_crit - t_p)) over"
   state="$STATE_CRITICAL"
 elif [ "$t_p" -gt "$proc_warn" ]; then
-  proc_msg="total proc warning ($t_p/$proc_warn)"
+  proc_state="WARN:$((proc_warn - t_p)) over"
   state="$STATE_WARNING"
 else
-  proc_msg="total proc OK ($t_p)"
+  proc_state="OK:$((proc_warn - t_p)) available"
 fi
 
 if [ "$t_m" -gt "$mem_crit" ]; then
-  mem_msg="total memory critical ($t_m/$mem_crit $MEM_UNIT)"
+  mem_state="CRIT:$((mem_crit - t_m)) $MEM_UNIT over"
   state="$STATE_CRITICAL"
 elif [ "$t_m" -gt "$mem_warn" ]; then
-  mem_msg="total memory warning ($t_m/$mem_warn $MEM_UNIT)"
+  mem_state="WARN:$((mem_warn - t_m)) $MEM_UNIT over"
   [ "$state" != "$STATE_CRITICAL" ] && state="$STATE_WARNING"
 else
-  mem_msg="total memory OK ($t_m $MEM_UNIT)"
+  mem_state="OK:$((mem_warn - t_m)) $MEM_UNIT available"
 fi
 
-# Concatenate proc_msg and mem_msg
-if [ -n "$proc_msg" ] && [ -n "$mem_msg" ]; then
-  msg="$proc_msg, $mem_msg"
-else
-  msg="$proc_msg$mem_msg"
-fi
+msg="memory ($mem_state) used=$t_m $MEM_UNIT warn=$mem_warn crit=$mem_crit, proc ($proc_state) used=$t_p warn=$proc_warn crit=$proc_crit"
 
 if [ "$state" = "$STATE_CRITICAL" ]; then
-  p_critical "$proc_msg, $mem_msg"
+  p_critical "$msg"
 elif [ "$state" = "$STATE_WARNING" ]; then
-  p_warning "$proc_msg, $mem_msg"
+  p_warning "$msg"
 else
-  p_ok "$proc_msg, $mem_msg"
+  p_ok "$msg"
 fi
