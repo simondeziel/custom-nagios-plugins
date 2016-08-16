@@ -143,20 +143,20 @@ perf_data="|mem=$t_m$MEM_UNIT;$mem_warn,$mem_crit;0;; proc=$t_p;$proc_warn;$proc
 
 state=$STATE_OK
 if [ "$t_p" -gt "$proc_crit" ]; then
-  proc_state="CRIT:$((proc_crit - t_p)) over"
+  proc_state="CRIT:$((t_p - proc_crit)) over"
   state="$STATE_CRITICAL"
 elif [ "$t_p" -gt "$proc_warn" ]; then
-  proc_state="WARN:$((proc_warn - t_p)) over"
+  proc_state="WARN:$((t_p - proc_warn)) over"
   state="$STATE_WARNING"
 else
   proc_state="OK:$((proc_warn - t_p)) available"
 fi
 
 if [ "$t_m" -gt "$mem_crit" ]; then
-  mem_state="CRIT:$((mem_crit - t_m)) $MEM_UNIT over"
+  mem_state="CRIT:$((t_m - mem_crit)) $MEM_UNIT over"
   state="$STATE_CRITICAL"
 elif [ "$t_m" -gt "$mem_warn" ]; then
-  mem_state="WARN:$((mem_warn - t_m)) $MEM_UNIT over"
+  mem_state="WARN:$((t_m - mem_warn)) $MEM_UNIT over"
   [ "$state" != "$STATE_CRITICAL" ] && state="$STATE_WARNING"
 else
   mem_state="OK:$((mem_warn - t_m)) $MEM_UNIT available"
