@@ -136,7 +136,7 @@ done
 IFS="$OIFS"
 
 MEM_UNIT="MB"
-perf_data="|mem=$t_m$MEM_UNIT;$mem_warn,$mem_crit;0;; proc=$t_p;$proc_warn;$proc_crit;0;;"
+perf_data="|mem=$t_m$MEM_UNIT;$mem_warn;$mem_crit;0;; proc=$t_p;$proc_warn;$proc_crit;0;;"
 
 state=$STATE_OK
 if [ "$t_p" -gt "$proc_crit" ]; then
