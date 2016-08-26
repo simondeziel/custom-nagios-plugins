@@ -2,7 +2,7 @@
 
 # Nagios plugin to check for regular and security updates availability
 
-# Copyright (c) 2012-2014 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (c) 2012-2014,2016 Simon Deziel <simon.deziel@gmail.com>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -34,7 +34,8 @@ MSG_UNKNOWN="APT UNKNOWN"
 SCRIPT_NAME="$(basename $0)"
 BIN="/usr/lib/update-notifier/apt-check"
 GETOPT="/usr/bin/getopt"
-perf_data="|"
+perf_data=""
+perf_data_enabled=1
 check_timeout=10
 verbosity="quiet"
 do_hwe_check="true"
@@ -67,6 +68,8 @@ Usage:
 Options:
  -h
     Print help screen
+ -n
+    No performance data
  -v
     Verbose execution
  -t
@@ -109,7 +112,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hvt: -l skip-hwe-check -- "$@"`
+TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hnvt: -l skip-hwe-check -- "$@"`
 if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
@@ -120,6 +123,7 @@ eval set -- "$TEMP"
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
       -h) long_usage; shift;;
+      -n) perf_data_enabled=0; shift;;
       -v) verbosity="verbose"; shift;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
       --skip-hwe-check) do_hwe_check="false"; shift;;
@@ -157,8 +161,10 @@ if [ "$do_hwe_check" = "true" ]; then
   hwe_support_status
 fi
 
-# Gather the perf data
-perf_data="|regular=$regular_updates;;;0 security=$security_updates;;1;0"
+if [ "$perf_data_enabled" -eq 1 ]; then
+  # Gather the perf data
+  perf_data="|regular=$regular_updates;;;0 security=$security_updates;;1;0"
+fi
 
 # Nothing pending?
 if [ "$security_updates" != 0 ]; then
