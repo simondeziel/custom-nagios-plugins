@@ -34,7 +34,7 @@ MSG_OK="OK"
 MSG_WARNING="WARNING"
 MSG_CRITICAL="CRITICAL"
 MSG_UNKNOWN="UNKNOWN"
-SCRIPT_NAME="$(basename $0)"
+SCRIPT_NAME="$(basename "$0")"
 GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
@@ -94,7 +94,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=`$GETOPT -q -s sh -n $SCRIPT_NAME -o +hm:t: -- "$@"`
+TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hm:t: -- "$@")
 if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
@@ -113,7 +113,7 @@ while test "$1" != "--"; do case "$1" in
 done
 
 # Check if /proc/*/maps are readable by testing with PID=1
-cat /proc/1/maps >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
+cat "/proc/1/maps" >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are you running $SCRIPT_NAME with root privileges?"
 
 # Check if everything is there to be used
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
@@ -121,7 +121,7 @@ cat /proc/1/maps >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, are 
 [ -x "$CHECK_DELETED_LIBS" ] || p_unknown "$CHECK_DELETED_LIBS not executable"
 
 # Enumerate all processes using deleted libs
-processes="$($TIMEOUT_BIN $check_timeout $CHECK_DELETED_LIBS)"
+processes="$($TIMEOUT_BIN $check_timeout "$CHECK_DELETED_LIBS")"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
   p_critical "Plugin timed out after $check_timeout seconds"
@@ -136,7 +136,7 @@ if [ -n "$processes" ]; then
     process_cnt=0
   fi
   if [ "$process_cnt" -gt "${max_count}" ]; then
-      multiline="$(echo "$processes" | sed -n "$((${max_count} + 1)),$ p" | paste -s -d " ")"
+      multiline="$(echo "$processes" | sed -n "$((max_count + 1)),$ p" | paste -s -d " ")"
       processes="$(echo "$processes" | sed -n "1,${max_count} p" | paste -s -d " ") ..."
   else
     processes="$(echo "$processes" | paste -s -d " ")"
