@@ -43,19 +43,19 @@ TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 CHECK_DELETED_LIBS="$(/usr/bin/which check-deleted-libs 2>/dev/null)"
 
 p_ok () {
-  printf "$MSG_OK: $1$multiline\n"
+  printf "%s\n" "$MSG_OK: $1$multiline"
   exit "$STATE_OK"
 }
 p_warning () {
-  printf "$MSG_WARNING: $1$multiline\n"
+  printf "%s\n" "$MSG_WARNING: $1$multiline"
   exit "$STATE_WARNING"
 }
 p_critical () {
-  printf "$MSG_CRITICAL: $1$multiline\n"
+  printf "%s\n" "$MSG_CRITICAL: $1$multiline"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  printf "$MSG_UNKNOWN: $1$multiline\n"
+  printf "%s\n" "$MSG_UNKNOWN: $1$multiline"
   exit "$STATE_UNKNOWN"
 }
 
