@@ -1,8 +1,7 @@
 #!/bin/sh
 
 # Nagios plugin to check for processes using deleted libraries
-
-# Copyright (c) 2014-2016 Simon Deziel <simon.deziel@gmail.com>
+# Copyright (C) 2014-2017 Simon Deziel <simon@sdeziel.info>
 
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -25,6 +24,7 @@
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export ENV=
 export CDPATH=
+export LC_ALL="C"
 
 STATE_OK=0
 STATE_WARNING=1
@@ -38,38 +38,43 @@ SCRIPT_NAME="$(basename "$0")"
 GETOPT="/usr/bin/getopt"
 perf_data="|"
 check_timeout=10
-max_count=0
 multiline=""
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 CHECK_DELETED_LIBS="$(/usr/bin/which check-deleted-libs 2>/dev/null)"
 
 p_ok () {
-  echo "$MSG_OK: $1$perf_data\n$multiline"
+  printf "$MSG_OK: $1$perf_data\n$multiline\n"
   exit "$STATE_OK"
 }
 p_warning () {
-  echo "$MSG_WARNING: $1$perf_data\n$multiline"
+  printf "$MSG_WARNING: $1$perf_data\n$multiline\n"
   exit "$STATE_WARNING"
 }
 p_critical () {
-  echo "$MSG_CRITICAL: $1$perf_data\n$multiline"
+  printf "$MSG_CRITICAL: $1$perf_data\n$multiline\n"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  echo "$MSG_UNKNOWN: $1$perf_data\n$multiline"
+  printf "$MSG_UNKNOWN: $1$perf_data\n$multiline\n"
   exit "$STATE_UNKNOWN"
+}
+
+output_multilines() {
+  while [ "$#" -gt 9 ]; do
+    echo "$1 $2 $3 $4 $5 $6 $7 $8 $9"
+    shift 9
+  done
+  [ "$#" -ne 0 ] && echo "$@"
 }
 
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME [-h] [-m max_count] [-t timeout]
+  $SCRIPT_NAME [-h] [-t timeout]
 
 Options:
  -h
     Print help screen
- -m
-    Maximum number of processes to report (default: 0, means infinite)
  -t
     Seconds before execution times out (default: 10)
 EOF
@@ -94,7 +99,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hm:t: -- "$@")
+TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +ht: -- "$@")
 if [ $? != 0 ]; then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
@@ -105,7 +110,6 @@ eval set -- "$TEMP"
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
       -h) long_usage; shift;;
-      -m) echo "$2" | grep -qE '^[0-9]+$' && max_count="$2"; shift 2;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
       --) shift ; break;;
       *)  p_unknown "Internal error";;
@@ -117,8 +121,7 @@ cat "/proc/1/maps" >/dev/null 2>&1 || p_unknown "Unable to read /proc/1/maps, ar
 
 # Check if everything is there to be used
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
-[ -n "$CHECK_DELETED_LIBS" ] || p_unknown "check-deleted-libs binary is missing"
-[ -x "$CHECK_DELETED_LIBS" ] || p_unknown "$CHECK_DELETED_LIBS not executable"
+[ -x "$CHECK_DELETED_LIBS" ] || p_unknown "check-deleted-libs binary is missing or not executable"
 
 # Enumerate all processes using deleted libs
 processes="$($TIMEOUT_BIN $check_timeout "$CHECK_DELETED_LIBS")"
@@ -129,20 +132,12 @@ elif [ "$RC" -ne 0 ]; then
   p_unknown "$SCRIPT_NAME returned $RC"
 fi
 
-if [ -n "$processes" ]; then
-  if [ "$max_count" -ne 0 ]; then
-    process_cnt="$(echo "$processes" | wc -l)"
-  else
-    process_cnt=0
-  fi
-  if [ "$process_cnt" -gt "${max_count}" ]; then
-      multiline="$(echo "$processes" | sed -n "$((max_count + 1)),$ p" | paste -s -d " ")"
-      processes="$(echo "$processes" | sed -n "1,${max_count} p" | paste -s -d " ") ..."
-  else
-    processes="$(echo "$processes" | paste -s -d " ")"
-  fi
-
-  p_warning "Processes using deleted libs: $processes"
+process_cnt="$(echo "$processes" | wc -w)"
+if [ "$process_cnt" -ne 0 ]; then
+  set -f
+  # shellcheck disable=SC2086
+  multiline="$(IFS=' ' output_multilines $processes)"
+  p_warning "$process_cnt processes using deleted libs"
 else
   p_ok "No deleted lib in use"
 fi
