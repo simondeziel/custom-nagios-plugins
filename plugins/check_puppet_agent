@@ -43,6 +43,7 @@
 #                       if none is provided using "-s".
 # 20150707 S.Deziel     Fix agent daemon regex to match for newer ruby versions. Fix lastrunfile
 #                       query to work with recent versions of puppet.
+# 20170922 J.Grammenos  Fix typo
 
 # Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
 # various other variables. For details, see:
@@ -81,7 +82,7 @@ usage () {
   echo "USAGE: "
   echo "  $0 [-w 3600] [-c 7200] [-s statefile]"
   echo "    -w warning threshold (default 3600 seconds)"
-  echo "    -c ciritcal threshold (default 7200 seconds)"
+  echo "    -c critical threshold (default 7200 seconds)"
   echo "    -s statefile (default: /var/lib/puppet/state/last_run_summary.yaml)"
   echo "    -p output performance data"
   echo ""
