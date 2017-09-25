@@ -139,11 +139,11 @@ elif [ "$RC" -ne 0 ]; then
   p_unknown "$SCRIPT_NAME returned $RC"
 fi
 
-process_cnt="$(echo "$processes" | wc -w)"
+process_cnt="$(echo "$processes" | wc -l)"
 if [ "$process_cnt" -ne 0 ]; then
   set -f
   # shellcheck disable=SC2086
-  multiline="$(IFS=' ' output_multilines $processes)"
+  multiline="$(output_multilines $processes)"
 
   if [ -n "$CHECK_DELETED_LIBS_ARGS" ]; then
     p_warning "$process_cnt VMs using outdated QEMU binary: "
