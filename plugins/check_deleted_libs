@@ -139,18 +139,7 @@ elif [ "$RC" -ne 0 ]; then
   p_unknown "$SCRIPT_NAME returned $RC"
 fi
 
-process_cnt="$(echo "$processes" | wc -l)"
-if [ "$process_cnt" -ne 0 ]; then
-  set -f
-  # shellcheck disable=SC2086
-  multiline="$(output_multilines $processes)"
-
-  if [ -n "$CHECK_DELETED_LIBS_ARGS" ]; then
-    p_warning "$process_cnt VMs using outdated QEMU binary: "
-  else
-    p_warning "$process_cnt processes using deleted libs: "
-  fi
-else
+if [ -z "$processes" ]; then
   if [ -n "$CHECK_DELETED_LIBS_ARGS" ]; then
     p_ok "No VM using outdated QEMU binary"
   else
@@ -158,5 +147,13 @@ else
   fi
 fi
 
-# We shouldn't get here
-p_unknown "Unknown error, try executing $SCRIPT_NAME manually"
+process_cnt="$(echo "$processes" | wc -w)"
+set -f
+# shellcheck disable=SC2086
+multiline="$(output_multilines $processes)"
+
+if [ -n "$CHECK_DELETED_LIBS_ARGS" ]; then
+  p_warning "$process_cnt VMs using outdated QEMU binary: "
+else
+  p_warning "$process_cnt processes using deleted libs: "
+fi
