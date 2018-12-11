@@ -44,6 +44,7 @@
 # 20150707 S.Deziel     Fix agent daemon regex to match for newer ruby versions. Fix lastrunfile
 #                       query to work with recent versions of puppet.
 # 20170922 J.Grammenos  Fix typo
+# 20181210 V.Perry      Path to puppet for puppet6, support variable lastrunfile indentation
 
 # Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
 # various other variables. For details, see:
@@ -93,7 +94,8 @@ yaml_parser () {
   section=$1
   field=$2
 
-  sed -n "/^  $section/,/^  [^ ]/ s/^    $field: \(.*\)$/\1/p" ${statefile}
+  indent=$(sed -n "s/^\([ ]*\)$section:$/\1/p" ${statefile})
+  sed -n "/^$indent$section/,/^$indent[^ ]/ s/^$indent  $field: \(.*\)$/\1/p" ${statefile}
 }
 
 while getopts "ac:s:w:p" opt
@@ -125,7 +127,7 @@ do
 done
 
 # find the state file if none provided
-statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile)"}"
+statefile="${statefile:="$(puppet config print lastrunfile)"}"
 
 # check if state file exists
 [ -s "${statefile}" -a -r "${statefile}" ] || result 1
