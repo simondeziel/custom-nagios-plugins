@@ -44,11 +44,12 @@
 # 20150707 S.Deziel     Fix agent daemon regex to match for newer ruby versions. Fix lastrunfile
 #                       query to work with recent versions of puppet.
 # 20170922 J.Grammenos  Fix typo
+# 20181210 S.Deziel     Update PATH and handle new lastrunfile format
 
 # Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
 # various other variables. For details, see:
 # https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/puppetlabs/puppet/bin
 export ENV=
 export BASH_ENV=
 export CDPATH=
@@ -90,10 +91,10 @@ usage () {
 }
 
 yaml_parser () {
-  section=$1
-  field=$2
+  section="$1"
+  field="$2"
 
-  sed -n "/^  $section/,/^  [^ ]/ s/^    $field: \(.*\)$/\1/p" ${statefile}
+  sed -n "/^ *${section}/,/^ *${field}/ s/^ \+${field}: \(.*\)$/\1/p" "${statefile}"
 }
 
 while getopts "ac:s:w:p" opt
@@ -125,7 +126,7 @@ do
 done
 
 # find the state file if none provided
-statefile="${statefile:="$(/usr/bin/puppet config print lastrunfile)"}"
+statefile="${statefile:="$(puppet config print lastrunfile)"}"
 
 # check if state file exists
 [ -s "${statefile}" -a -r "${statefile}" ] || result 1
