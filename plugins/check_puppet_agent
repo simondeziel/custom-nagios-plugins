@@ -163,7 +163,8 @@ last_run="$(yaml_parser 'time' 'last_run')"
 
 # Attempt to get the uptime in seconds
 if [ -r /proc/uptime ]; then
-  uptime="$(awk -F. '{print $1}' /proc/uptime)"
+  read -r uptime leftover < /proc/uptime
+  uptime="${uptime%.*}"
 else
   uptime=0
 fi
