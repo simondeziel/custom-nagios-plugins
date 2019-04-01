@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# Nagios plugin to check for if systemctl --failed reports failed units.
+# Copyright (C) 2019 Simon Deziel <simon@sdeziel.info>
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+export LC_ALL="C"
+
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="OK"
+MSG_WARNING="WARNING"
+MSG_CRITICAL="CRITICAL"
+MSG_UNKNOWN="UNKNOWN"
+SCRIPT_NAME="$(basename "$0")"
+SED="$(/usr/bin/which sed 2>/dev/null)"
+SYSTEMCTL="$(/usr/bin/which systemctl 2>/dev/null)"
+
+p_ok () {
+  printf "%s\n" "$MSG_OK: $1"
+  exit "$STATE_OK"
+}
+p_warning () {
+  printf "%s\n" "$MSG_WARNING: $1"
+  exit "$STATE_WARNING"
+}
+p_critical () {
+  printf "%s\n" "$MSG_CRITICAL: $1"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  printf "%s\n" "$MSG_UNKNOWN: $1"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME [-h]
+
+Options:
+ -h
+    Print help screen
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2019 Simon Deziel
+
+This plugin reports if there are failed systemd units
+
+EOF
+  usage
+  exit 0
+}
+
+# Check if invoked properly
+if [ "$#" = 1 ] && [ "$1" = "-h" ]; then
+  long_usage
+elif [ "$#" != 0 ]; then
+  usage
+  p_unknown "Invalid argument"
+fi
+
+FAILED_UNITS="$("$SYSTEMCTL" --failed | "$SED" -n "/^[0-9]\+ loaded units listed\. / s/^\([0-9]\+\).*/\1/p")"
+if [ "$FAILED_UNITS" != 0 ]; then
+  p_critical "$FAILED_UNITS failed unit(s)"
+else
+  p_ok "0 failed unit"
+fi
