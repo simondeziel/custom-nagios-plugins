@@ -1,0 +1,105 @@
+#!/bin/sh
+
+# Nagios plugin to monitor TCP listening sockets
+
+# Copyright (c) 2019 Simon Deziel <simon@sdeziel.info>
+
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+# Example configuration
+#
+# This check needs to be installed on the monitoring target and executed through
+# NRPE. NRPE config extract example:
+#
+# command[check_mysql_listener]=/usr/lib/nagios/plugins/check_tcp_socket -p 3306
+#
+# And the config extract to add to Nagios' config:
+#
+# define service {
+#   use                 'generic-service'
+#   service_description 'MySQL listener'
+#   check_command       'check_nrpe!check_mysql_listener'
+# }
+#
+# This plugin is useful to track iptables state usage (i.e. to identify a DDoS).
+
+# Explicitly set the PATH to that of ENV_SUPATH in /etc/login.defs and unset
+# various other variables. For details, see:
+# https://wiki.ubuntu.com/SecurityTeam/AppArmorPolicyReview#Execute_rules
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export ENV=
+export CDPATH=
+
+STATE_OK=0
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+MSG_OK="OK"
+MSG_CRITICAL="CRIT"
+MSG_UNKNOWN="UNKNOWN"
+SCRIPT_NAME="$(basename "$0")"
+SS_BIN="$(/usr/bin/which ss 2> /dev/null)"
+
+p_ok () {
+  echo "$MSG_OK: $1"
+  exit "$STATE_OK"
+}
+p_critical () {
+  echo "$MSG_CRITICAL: $1"
+  exit "$STATE_CRITICAL"
+}
+p_unknown () {
+  echo "$MSG_UNKNOWN: $1"
+  exit "$STATE_UNKNOWN"
+}
+
+usage () {
+  cat << EOF
+Usage:
+  $SCRIPT_NAME -p <TCP port> | -h
+EOF
+}
+
+long_usage () {
+  cat << EOF
+Copyright (c) 2019 Simon Deziel
+
+This plugin checks for TCP listening sockets
+
+EOF
+  usage
+  exit 0
+}
+
+# Check arguments
+if [ "$#" -eq 0 ]; then
+  long_usage
+fi
+
+# process command line args
+while [ ! -z "$1" ]; do
+  case "$1" in
+    -p)        shift; PORT="$1";;
+    -h|--help) long_usage;;
+  esac
+  shift
+done
+
+# Check args
+[ "$PORT" -gt 0 ]     || p_unknown "Invalid port specified"
+[ "$PORT" -le 65536 ] || p_unknown "Invalid port specified"
+
+[ -x "$SS_BIN" ] || p_unknown "ss is not available, have you installed iproute2?"
+
+"$SS_BIN" -nlt "sport = :$PORT" | grep -qwF LISTEN && p_ok "TCP/$PORT is listening"
+p_critical "TCP/$PORT is NOT listening"
