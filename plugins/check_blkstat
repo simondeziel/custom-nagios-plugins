@@ -1,21 +1,21 @@
 #!/bin/sh
 
 # Nagios plugin to monitor block I/O and bandwidth
+# Copyright (C) 2012-2019 Simon Deziel <simon@sdeziel.info>
 
-# Copyright (c) 2012,2014 Simon Deziel <simon.deziel@gmail.com>
-
-# Permission to use, copy, modify, and distribute this software for any
-# purpose with or without fee is hereby granted, provided that the above
-# copyright notice and this permission notice appear in all copies.
-
-# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 # Example configuration
 #
@@ -40,6 +40,7 @@
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export ENV=""
 export CDPATH=""
+export LC_ALL="C"
 
 STATE_OK=0
 STATE_WARNING=1
@@ -49,24 +50,24 @@ MSG_OK="BLKSTAT OK"
 MSG_WARNING="BLKSTAT WARNING"
 MSG_CRITICAL="BLKSTAT CRITICAL"
 MSG_UNKNOWN="BLKSTAT UNKNOWN"
-SCRIPT_NAME=$(basename $0)
+SCRIPT_NAME=$(basename "$0")
 DISK="sda" # Defaults to monitor sda
 UNIT="m"   # Defaults to express bandwidth in MiB/s
 
 p_ok () {
-  echo "$MSG_OK: $1"
+  printf "%s\n" "$MSG_OK: $1"
   exit "$STATE_OK"
 }
 p_warning () {
-  echo "$MSG_WARNING: $1"
+  printf "%s\n" "$MSG_WARNING: $1"
   exit "$STATE_WARNING"
 }
 p_critical () {
-  echo "$MSG_CRITICAL: $1"
+  printf "%s\n" "$MSG_CRITICAL: $1"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
-  echo "$MSG_UNKNOWN: $1"
+  printf "%s\n" "$MSG_UNKNOWN: $1"
   exit "$STATE_UNKNOWN"
 }
 
@@ -79,7 +80,7 @@ EOF
 
 long_usage () {
   cat << EOF
-Copyright (c) 2012 Simon Deziel
+Copyright (c) 2012-2019 Simon Deziel
 
 This plugin checks the block device I/O and bandwidth statistics
 
@@ -137,10 +138,10 @@ check_args () {
 parse_stats () {
   # Previous stats
   [ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && p_unknown "Invalid previous disk stats"
-  PREVIOUS_IO_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $1}')"
-  PREVIOUS_SECTOR_READ="$(echo $PREVIOUS_DISK_STAT | awk '{print $3}')"
-  PREVIOUS_IO_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $5}')"
-  PREVIOUS_SECTOR_WRITE="$(echo $PREVIOUS_DISK_STAT | awk '{print $7}')"
+  PREVIOUS_IO_READ="$(echo "$PREVIOUS_DISK_STAT" | awk '{print $1}')"
+  PREVIOUS_SECTOR_READ="$(echo "$PREVIOUS_DISK_STAT" | awk '{print $3}')"
+  PREVIOUS_IO_WRITE="$(echo "$PREVIOUS_DISK_STAT" | awk '{print $5}')"
+  PREVIOUS_SECTOR_WRITE="$(echo "$PREVIOUS_DISK_STAT" | awk '{print $7}')"
   if [ -z "$PREVIOUS_IO_READ" ] || [ -z "$PREVIOUS_SECTOR_READ" ] || [ -z "$PREVIOUS_IO_WRITE" ] || [ -z "$PREVIOUS_SECTOR_WRITE" ]; then
     rm -f "$PREVIOUS_STAT_FILE"
     p_unknown "Invalid previous block stats"
@@ -148,13 +149,34 @@ parse_stats () {
 
   # Current stats
   [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Invalid previous disk stats"
-  CURRENT_IO_READ="$(echo $CURRENT_DISK_STAT | awk '{print $1}')"
-  CURRENT_SECTOR_READ="$(echo $CURRENT_DISK_STAT | awk '{print $3}')"
-  CURRENT_IO_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $5}')"
-  CURRENT_SECTOR_WRITE="$(echo $CURRENT_DISK_STAT | awk '{print $7}')"
+  CURRENT_IO_READ="$(echo "$CURRENT_DISK_STAT" | awk '{print $1}')"
+  CURRENT_SECTOR_READ="$(echo "$CURRENT_DISK_STAT" | awk '{print $3}')"
+  CURRENT_IO_WRITE="$(echo "$CURRENT_DISK_STAT" | awk '{print $5}')"
+  CURRENT_SECTOR_WRITE="$(echo "$CURRENT_DISK_STAT" | awk '{print $7}')"
   if [ -z "$CURRENT_IO_READ" ] || [ -z "$CURRENT_SECTOR_READ" ] || [ -z "$CURRENT_IO_WRITE" ] || [ -z "$CURRENT_SECTOR_WRITE" ]; then
     p_unknown "Invalid current block stats"
   fi
+}
+
+get_current_disk_stats () {
+  CURRENT_DISK_STAT="$(cat "/sys/block/$DISK/stat")"
+  [ -z "$CURRENT_DISK_STAT" ] && p_unknown "Unable to read the current disk stats"
+}
+
+get_previous_disk_stats () {
+  if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
+    # we just did the first stats read so we cannot continue
+    # and achieve anything useful as we have no comparison point
+    # let's save the current stats, wait a little, get new stats
+    # and carry on
+    echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
+    sleep 5
+    get_current_disk_stats
+  fi
+  [ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
+  PREVIOUS_DISK_STAT="$(cat "$PREVIOUS_STAT_FILE")"
+  [ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && \
+    p_unknown "Unable to read the previous disk stats"
 }
 
 # Check arguments
@@ -173,53 +195,46 @@ while [ ! -z "$1" ]; do
   esac
   shift
 done
+PREVIOUS_STAT_FILE="/var/tmp/$SCRIPT_NAME.$DISK"
 
 # Check args
 check_args
 
+[ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read disk stats"
+
 # Get current disk stats
-[ -r "/sys/block/$DISK/stat" ] || p_unknown "Unable to read the current disk stats"
-CURRENT_DISK_STAT="$(cat /sys/block/$DISK/stat)"
-CURRENT_RUN_TIMESTAMP="$(date +%s)"
-[ -z "$CURRENT_DISK_STAT" ] && p_unknown "Unable to read the current disk stats"
+get_current_disk_stats
 
 # Get previous disk stats
-PREVIOUS_STAT_FILE="/var/tmp/$SCRIPT_NAME.$DISK"
-if [ ! -e "$PREVIOUS_STAT_FILE" ]; then
-  echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE"
-  # XXX: returning unknown should not send a notification since
-  #      Nagios check multiple times before alerting
-  p_unknown "First run, no info on previous run yet."
-fi
-[ -r "$PREVIOUS_STAT_FILE" ] || p_unknown "Unable to read the previous disk stats"
-PREVIOUS_DISK_STAT="$(cat $PREVIOUS_STAT_FILE)"
-PREVIOUS_RUN_TIMESTAMP="$(date +%s -r $PREVIOUS_STAT_FILE)"
-[ -z "$PREVIOUS_DISK_STAT" ] && rm -f "$PREVIOUS_STAT_FILE" && \
-  p_unknown "Unable to read the previous disk stats"
+get_previous_disk_stats
+
+# get timestamps
+PREVIOUS_RUN_TIMESTAMP="$(date +%s -r "$PREVIOUS_STAT_FILE")"
+CURRENT_RUN_TIMESTAMP="$(date +%s)"
+
+# Elapsed time between current and previous run
+TIME_DELTA="$((CURRENT_RUN_TIMESTAMP - PREVIOUS_RUN_TIMESTAMP))"
+[ "$TIME_DELTA" -lt 1 ] && p_unknown "Invalid time delta between previous and current runs"
 
 # Parse stats
 parse_stats
-
-# Elapsed time between current and previous run
-TIME_DELTA="$(($CURRENT_RUN_TIMESTAMP - $PREVIOUS_RUN_TIMESTAMP))"
-[ "$TIME_DELTA" -lt 1 ] && p_unknown "Invalid time delta between previous and current runs"
 
 # Save current run stats into previous stat file
 echo "$CURRENT_DISK_STAT" > "$PREVIOUS_STAT_FILE" || p_unknown "Unable to save current stats for later usage"
 
 # Delta
-IO_READ_DELTA="$(($CURRENT_IO_READ - $PREVIOUS_IO_READ))"
-IO_WRITE_DELTA="$(($CURRENT_IO_WRITE - $PREVIOUS_IO_WRITE))"
-SECTOR_READ_DELTA="$(($CURRENT_SECTOR_READ - $PREVIOUS_SECTOR_READ))"
-SECTOR_WRITE_DELTA="$(($CURRENT_SECTOR_WRITE - $PREVIOUS_SECTOR_WRITE))"
+IO_READ_DELTA="$((CURRENT_IO_READ - PREVIOUS_IO_READ))"
+IO_WRITE_DELTA="$((CURRENT_IO_WRITE - PREVIOUS_IO_WRITE))"
+SECTOR_READ_DELTA="$((CURRENT_SECTOR_READ - PREVIOUS_SECTOR_READ))"
+SECTOR_WRITE_DELTA="$((CURRENT_SECTOR_WRITE - PREVIOUS_SECTOR_WRITE))"
 if [ "$IO_READ_DELTA" -lt 0 ] || [ "$IO_WRITE_DELTA" -lt 0 ] || [ "$SECTOR_READ_DELTA" -lt 0 ] || [ "$SECTOR_WRITE_DELTA" -lt 0 ]; then
   p_unknown "Invalid block stats delta"
 fi
 
 # Metrics
-IOPS="$((($IO_READ_DELTA + IO_WRITE_DELTA) / $TIME_DELTA))"
-BW_READ="$((($SECTOR_READ_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
-BW_WRITE="$((($SECTOR_WRITE_DELTA / $SECTOR_PER_UNIT) / $TIME_DELTA))"
+IOPS="$(((IO_READ_DELTA + IO_WRITE_DELTA) / TIME_DELTA))"
+BW_READ="$(((SECTOR_READ_DELTA / SECTOR_PER_UNIT) / TIME_DELTA))"
+BW_WRITE="$(((SECTOR_WRITE_DELTA / SECTOR_PER_UNIT) / TIME_DELTA))"
 if [ "$IOPS" -lt 0 ] || [ "$BW_READ" -lt 0 ] || [ "$BW_WRITE" -lt 0 ]; then
   p_unknown "Invalid IO/s or bandwidth stats"
 fi
