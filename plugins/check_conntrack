@@ -49,9 +49,9 @@ MSG_OK="CONNTRACK OK"
 MSG_WARNING="CONNTRACK WARNING"
 MSG_CRITICAL="CONNTRACK CRITICAL"
 MSG_UNKNOWN="CONNTRACK UNKNOWN"
-SCRIPT_NAME=$(basename $0)
+SCRIPT_NAME="$(basename "$0")"
 perf_data="|"
-CONNTRACK_BIN="$(/usr/bin/which conntrack 2> /dev/null)"
+CONNTRACK_BIN="$(command -v conntrack)"
 
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
@@ -99,7 +99,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 # process command line args
-while [ ! -z "$1" ]; do
+while [ -n "$1" ]; do
   case $1 in
     -w|--warning)  shift; WARNING="$1";;
     -c|--critical) shift; CRITICAL="$1";;
@@ -135,9 +135,9 @@ fi
 CONNTRACK_MAX="$(cat ${CONNTRACK_PATH}_max)"
 [ -z "$CONNTRACK_MAX" ] && p_unknown "Unable to read the conntrack max"
 
-USAGE_PERCENT="$(( 100 * $CONNTRACK_COUNT / $CONNTRACK_MAX))"
-WARNING_THRESHOLD="$(( $CONNTRACK_MAX * $WARNING / 100))"
-CRITICAL_THRESHOLD="$(( $CONNTRACK_MAX * $CRITICAL / 100))"
+USAGE_PERCENT="$(( 100 * CONNTRACK_COUNT / CONNTRACK_MAX ))"
+WARNING_THRESHOLD="$(( CONNTRACK_MAX * WARNING / 100 ))"
+CRITICAL_THRESHOLD="$(( CONNTRACK_MAX * CRITICAL / 100 ))"
 perf_data="|count=$CONNTRACK_COUNT;$WARNING_THRESHOLD;$CRITICAL_THRESHOLD;0;$CONNTRACK_MAX"
 
 # Compare count against thresholds
