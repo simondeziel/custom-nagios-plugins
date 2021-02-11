@@ -119,9 +119,7 @@ done
 [ -d "/proc/sys/net/ipv4/netfilter/" ] && CONNTRACK_PATH="/proc/sys/net/ipv4/netfilter/ip_conntrack"
 
 # Get conntrack count
-if [ -x "$CONNTRACK_BIN" ]; then
-  [ "$(id -u)" = 0 ] || p_unknown "Using $CONNTRACK_BIN requires to be root"
-
+if [ -x "$CONNTRACK_BIN" ] && [ "$(id -u)" = 0 ]; then
   # do not count UNREPLIED connections as they are temporary entries so as
   # soon as nf_conntrack_max is reached, UNREPLIED entries are deleted
   # http://www.netfilter.org/documentation/FAQ/netfilter-faq-3.html#ss3.17
