@@ -35,6 +35,7 @@ MSG_UNKNOWN="APT UNKNOWN"
 SCRIPT_NAME="$(basename "$0")"
 BIN="/usr/lib/update-notifier/apt-check"
 GETOPT="/usr/bin/getopt"
+LIST_PACKAGES=""
 perf_data=""
 perf_data_enabled=1
 check_timeout=10
@@ -44,16 +45,20 @@ HWE_SUPPORT_STATUS_MSG=""
 PATH_TO_HWE_SUPPORT_STATUS="/usr/bin/hwe-support-status"
 TIMEOUT_BIN="$(/usr/bin/which timeout 2> /dev/null)"
 
+
+
 p_ok () {
   echo "$MSG_OK: $1$perf_data"
   exit "$STATE_OK"
 }
 p_warning () {
   echo "$MSG_WARNING: $1$perf_data"
+  echo "$LIST_PACKAGES"
   exit "$STATE_WARNING"
 }
 p_critical () {
   echo "$MSG_CRITICAL: $1$perf_data"
+  echo "$LIST_PACKAGES"
   exit "$STATE_CRITICAL"
 }
 p_unknown () {
@@ -64,11 +69,13 @@ p_unknown () {
 usage () {
   cat << EOF
 Usage:
-  $SCRIPT_NAME [-h] [-t timeout] [--skip-hwe-check]
+  $SCRIPT_NAME [-h] [-l] [-t timeout] [--skip-hwe-check]
 
 Options:
  -h
     Print help screen
+ -l
+    List upgradable packages names
  -n
     No performance data
  -v
@@ -94,8 +101,7 @@ EOF
 hwe_support_status () {
   [ -e "$PATH_TO_HWE_SUPPORT_STATUS" ] || return
 
-  HWE_SUPPORT_STATUS_MSG="; $($PATH_TO_HWE_SUPPORT_STATUS --$verbosity 2>&1)"
-  if [ "$?" != 0 ]; then
+  if ! HWE_SUPPORT_STATUS_MSG="; $($PATH_TO_HWE_SUPPORT_STATUS --$verbosity 2>&1)";then
     security_updates="$((security_updates + 1))"
   fi
 
@@ -113,8 +119,7 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hnvt: -l skip-hwe-check -- "$@")
-if [ $? != 0 ]; then
+if ! TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hlnvt: -l skip-hwe-check -- "$@"); then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
 
@@ -123,7 +128,8 @@ eval set -- "$TEMP"
 
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
-      -h) long_usage; shift;;
+      -h) long_usage; ;;
+      -l) LIST_PACKAGES=$( "$BIN" "--package-names" 2>&1 > /dev/null ); shift;;
       -n) perf_data_enabled=0; shift;;
       -v) verbosity="verbose"; shift;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
@@ -140,9 +146,12 @@ fi
 
 # Check if all worked
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
-updates="$($TIMEOUT_BIN $check_timeout $BIN 2>&1)"
+updates="$("$TIMEOUT_BIN" "$check_timeout" "$BIN" 2>&1)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
+  # Empty package list since there is no point in printing them 
+  # after a timeout
+  LIST_PACKAGES=""
   p_critical "Plugin timed out after $check_timeout seconds"
 elif [ "$RC" -ne 0 ]; then
   p_unknown "$BIN returned $RC"
