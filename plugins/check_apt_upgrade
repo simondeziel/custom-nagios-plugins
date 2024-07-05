@@ -94,8 +94,9 @@ EOF
 hwe_support_status () {
   [ -e "$PATH_TO_HWE_SUPPORT_STATUS" ] || return
 
-  HWE_SUPPORT_STATUS_MSG="; $($PATH_TO_HWE_SUPPORT_STATUS --$verbosity 2>&1)"
-  if [ "$?" != 0 ]; then
+  #HWE_SUPPORT_STATUS_MSG="; $($PATH_TO_HWE_SUPPORT_STATUS --$verbosity 2>&1)"
+  #if [ "$?" != 0 ]; then
+  if ! HWE_SUPPORT_STATUS_MSG="; $($PATH_TO_HWE_SUPPORT_STATUS --$verbosity 2>&1)";then
     security_updates="$((security_updates + 1))"
   fi
 
@@ -113,8 +114,9 @@ fi
 # Note that we use `"$@"' to let each command-line parameter expand to a
 # separate word. The quotes around `$@' are essential!
 # We need TEMP as the `eval set --' would nuke the return value of getopt.
-TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hnvt: -l skip-hwe-check -- "$@")
-if [ $? != 0 ]; then
+#TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hnvt: -l skip-hwe-check -- "$@")
+#if [ $? != 0 ]; then
+if ! TEMP=$($GETOPT -q -s sh -n "$SCRIPT_NAME" -o +hnvt: -l skip-hwe-check -- "$@"); then
   p_unknown "Unknown/invalid argument, see $SCRIPT_NAME -h for help"
 fi
 
@@ -123,7 +125,7 @@ eval set -- "$TEMP"
 
 # Parse arguments
 while test "$1" != "--"; do case "$1" in
-      -h) long_usage; shift;;
+      -h) long_usage; ;;
       -n) perf_data_enabled=0; shift;;
       -v) verbosity="verbose"; shift;;
       -t) echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$' && check_timeout="$2"; shift 2;;
@@ -140,7 +142,7 @@ fi
 
 # Check if all worked
 [ -n "$TIMEOUT_BIN" ] || check_timeout=""
-updates="$($TIMEOUT_BIN $check_timeout $BIN 2>&1)"
+updates="$("$TIMEOUT_BIN" "$check_timeout" "$BIN" 2>&1)"
 RC="$?"
 if [ "$RC" -eq 124 ]; then
   p_critical "Plugin timed out after $check_timeout seconds"
